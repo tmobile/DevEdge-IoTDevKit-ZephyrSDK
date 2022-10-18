@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# adds any out of tree drivers built as modules to the zephyr build path
+if [ "$SHELL" = "/bin/zsh" ]; then
+    BASH_SOURCE=${(%):-%x}
+fi
+LOCATION=$(dirname $(realpath -s $BASH_SOURCE))
+
+export ZEPHYR_EXTRA_MODULES=$ZEPHYR_EXTRA_MODULES\;$LOCATION
+
+#add lines as needed for each driver below
+
+#export ZEPHYR_EXTRA_MODULES=$ZEPHYR_EXTRA_MODULES\;$LOCATION/drivers/(another driver here)
+
+echo $ZEPHYR_EXTRA_MODULES

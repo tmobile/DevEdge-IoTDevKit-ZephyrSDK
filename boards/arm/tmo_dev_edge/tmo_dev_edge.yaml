@@ -1,0 +1,22 @@
+identifier: tmo_dev_edge
+name: TMO_DEV_EDGE
+type: mcu
+arch: arm
+ram: 256
+flash: 1024
+toolchain:
+  - zephyr
+  - gnuarmemb
+  - xtools
+supported:
+  - i2c
+  - gpio
+  - pwm
+  - nvs
+  - watchdog
+  - counter
+testing:
+  default: true
+  ignore_tags:
+    - net
+    - bluetooth

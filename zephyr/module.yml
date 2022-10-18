@@ -1,0 +1,4 @@
+name: Zephyr TMO SDK
+build:
+  settings:
+    board_root: .
