@@ -214,8 +214,8 @@ static ssize_t battery_power_source_get(struct bt_conn *conn,
                                 const struct bt_gatt_attr *attr, void *buf,
                                 uint16_t len, uint16_t offset)
 {
-        uint8_t power_source;
-        if (battery_is_charging == true) {
+	uint8_t power_source;
+	if (battery_is_charging == true) {
 		power_source = ON_CHARGER_POWER;
 	} else {
 		power_source = ON_BATTERY_POWER;
