@@ -2178,7 +2178,7 @@ int cmd_tmo_cert_modem_load(const struct shell* shell, int argc, char **argv)
 		return EIO;
 	}
 
-	if (fcntl(sock, CHECK_CERT, name)) {
+	if (fcntl(sock, CHECK_CERT, name) == 0) {
 		if (!force) {
 			shell_error(shell, "Cert already loaded!");
 			zsock_close(sock);
