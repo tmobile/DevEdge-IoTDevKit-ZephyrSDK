@@ -431,7 +431,6 @@ int tmo_http_download(int devid, char url[], char filename[])
 			zsock_close(sock);
 			sock = create_http_socket(tls, host, res, iface);
 			int profile = 255;
-			LOG_WRN("Failed using Root Trust, trying User Trust");
 			zsock_setsockopt(sock, SOL_TLS, TLS_MURATA_USE_PROFILE, &profile, sizeof(profile));
 			ret = zsock_connect(sock, res->ai_addr, res->ai_addrlen);
 		}
