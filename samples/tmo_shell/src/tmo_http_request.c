@@ -421,6 +421,8 @@ int tmo_http_download(int devid, char url[], char filename[])
 	// ret = zsock_setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE,
 	// 			   &ifreq, sizeof(ifreq));
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS) && defined(CONFIG_MODEM)
+	bool user_trust = false;
+	int profile;
 	if (devid == MODEM_ID && tls) {
 		struct murata_tls_profile_params pparams = {0};
 		pparams.profile_id_num = 255;
@@ -433,6 +435,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 			int profile = 255;
 			zsock_setsockopt(sock, SOL_TLS, TLS_MURATA_USE_PROFILE, &profile, sizeof(profile));
 			ret = zsock_connect(sock, res->ai_addr, res->ai_addrlen);
+			user_trust = true;
 		}
 	} else {
 		ret = zsock_connect(sock, res->ai_addr, res->ai_addrlen);
@@ -451,6 +454,8 @@ int tmo_http_download(int devid, char url[], char filename[])
 	http_total_received = 0;
 	http_total_written = 0;
 	http_content_length = 0;
+	int fail_count = 0;
+
 	if (filename) {
 		// Assume fs is already mounted
 
@@ -468,10 +473,13 @@ int tmo_http_download(int devid, char url[], char filename[])
 		}
 		errno = 0;
 		ret = http_client_req(sock, &req, 5000, &file);
-		while (http_content_length && http_content_length > http_total_received) {
-			printf("\nTransfer failure detected, reinitializing transfer... (%d < %d)\n", http_total_received, http_content_length);
+		while (http_content_length && http_content_length > http_total_received && fail_count < 5) {
+			fail_count++;
+			printf("\nTransfer failure detected, reinitializing transfer... (%d/5) (%d < %d)\n", fail_count, http_total_received, http_content_length);
 			zsock_close(sock);
 			sock = create_http_socket(tls, host, res, iface);
+			if (user_trust)
+				zsock_setsockopt(sock, SOL_TLS, TLS_MURATA_USE_PROFILE, &profile, sizeof(profile));
 			errno = 0;
 			k_msleep(2000);
 			zsock_connect(sock, res->ai_addr, res->ai_addrlen);
@@ -493,10 +501,12 @@ int tmo_http_download(int devid, char url[], char filename[])
 	} else {
 		errno = 0;
 		ret = http_client_req(sock, &req, 5000, NULL);
-		while (http_content_length && http_content_length > http_total_received) {
-			printf("\nTransfer failure detected, reinitializing transfer... (%d < %d)\n", http_total_received, http_content_length);
+		while (http_content_length && http_content_length > http_total_received && fail_count < 5) {
+			printf("\nTransfer failure detected, reinitializing transfer... (%d/5) (%d < %d)\n", fail_count, http_total_received, http_content_length);
 			zsock_close(sock);
 			sock = create_http_socket(tls, host, res, iface);
+			if (user_trust)
+				zsock_setsockopt(sock, SOL_TLS, TLS_MURATA_USE_PROFILE, &profile, sizeof(profile));
 			errno = 0;
 			k_msleep(2000);
 			zsock_connect(sock, res->ai_addr, res->ai_addrlen);
@@ -511,6 +521,11 @@ int tmo_http_download(int devid, char url[], char filename[])
 			http_client_req(sock, &req, 5000, &file);
 		}
 		printf("\n\nReceived:%d\n", http_total_received);
+	}
+	if (fail_count == 5 && http_total_received != http_content_length) {
+		printf("Error: Exceded maximum number of attempts for download\n");
+		ret = -EAGAIN;
+		goto exit;
 	}
 exit:
 	if (res) {

@@ -60,25 +60,25 @@ void ln_buf_gen(void)
 	uint8_t beacons = 0;
 	uint16_t ttff = 0;
 	uint16_t quality_flags = 0;
-	if (ln_las_flags & (BIT(2) | BIT(7)) ) {
-		latitude = sys_cpu_to_le32((int)(gnss_values.lat * 10000000.0));
-		longitude = sys_cpu_to_le32((int)(gnss_values.lon * 10000000.0));
-		// There is no need to convert to negative values if
-		// latchar is 'S' or lonchar is 'W' as the gnss app
-		// has already done the conversion in gnss thread below
-	}
+	bool fix_ok = (gnss_values.lat != 0.0 && gnss_values.lon != 0.0);
+	latitude = sys_cpu_to_le32((int)(gnss_values.lat * 10000000.0));
+	longitude = sys_cpu_to_le32((int)(gnss_values.lon * 10000000.0));
 	elevation = sys_cpu_to_le32((int32_t)(gnss_values.alt * 100));
 	/* put flags in buffer */
+	ln_las_flags &= ~(BIT(7) | BIT(8));
+	if (fix_ok) {
+		ln_las_flags |= 0b01 << 7;
+	}
 	memcpy(ln_las_buf, &ln_las_flags, 2);
 	memcpy(ln_las_buf + 2, &latitude, 4);
 	memcpy(ln_las_buf + 6, &longitude, 4);
 	memcpy(ln_las_buf + 10, &elevation, 3);
 
-	if (gnss_values.timeToFix){
-		quality_flags = BIT(1) | BIT(2) | BIT(5) | (0b01<<7);
+	if (fix_ok){
+		quality_flags = BIT(0) | BIT(2) | BIT(5) | (0b01<<7);
 		beacons = gnss_values.sats;
-		hdop = (uint8_t) gnss_values.hdop;
-		ttff = gnss_values.timeToFix;
+		hdop = (uint8_t) gnss_values.hdop * 5;
+		ttff = gnss_values.timeToFix * 10;
 		memcpy(ln_quality_buf, &quality_flags, 2);
 		ln_quality_buf[2] = beacons;
 		memcpy(ln_quality_buf + 3, &ttff, 2);
