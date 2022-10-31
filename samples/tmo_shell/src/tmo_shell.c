@@ -557,6 +557,12 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 	host = argv[2];
 	int ai_family = (socks[sock_idx].flags & BIT(sock_v6)) ? AF_INET6 : AF_INET;
 	// ret = net_addr_pton(AF_INET, host, &target.sin_addr);
+	/* Workaround for now, will implement more advanced logic later */
+	if (socks[sock_idx].flags & (BIT(sock_tls) | BIT(sock_dtls))){
+		int peer_verify_val = TLS_PEER_VERIFY_NONE;
+		ret = setsockopt(sd, SOL_TLS, TLS_PEER_VERIFY,
+				&peer_verify_val, sizeof(peer_verify_val));
+	}
 	ret = net_ipaddr_parse(host, strlen(host), &target);
 	if (!ret) {	//try dns
 		/*  dns stuff */
