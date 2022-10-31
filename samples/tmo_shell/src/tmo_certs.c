@@ -17,8 +17,10 @@
 
 #include "tmo_shell.h"
 #include "ca_certificate.h"
+#include "tmo_http_request.h"
 
 #define CERT_BIN_LOCATION "/tmo/certs/cert.bin"
+#define CERT_BIN_FOLDER "/tmo/certs/"
 #define HTTP_PREFIX  "http://"
 #define HTTPS_PREFIX  "https://"
 
@@ -26,7 +28,8 @@ unsigned char ca_cert[2048] = {0};
 int ca_cert_sz = 0;
 int ca_cert_idx = 0;
 extern uint8_t mxfer_buf[];
-char *dec_buf = &mxfer_buf[2000];
+static char *dec_buf = &mxfer_buf[2000];
+static int cert_cnt, success_cnt;
 mbedtls_x509_crt ca_x509;
 
 struct cert_record {
@@ -192,6 +195,7 @@ static void parse(struct fs_file_t *file, char * fragment, size_t fragment_len)
 				char *ver_start = strstr(dec_buf, "cert. version     : ");
 				ver_start += sizeof("cert. version     : ") - 1;
 				ver = strtol(ver_start, NULL, 10);
+				cert_cnt++;
 				if (ver != 0){
 					char *cn, *eol; 
 					cn = strstr(dec_buf, "subject name");
@@ -207,10 +211,16 @@ static void parse(struct fs_file_t *file, char * fragment, size_t fragment_len)
 						memcpy(rec.cert_cn, cn, MIN(eol-cn, 64));
 					}
 					fs_write(file, &rec, sizeof(rec));
-					printk("Installed cert: %s\n%s\n", rec.cert_cn, dec_buf);
+					// printk("Installed cert: %s\n%s\n", rec.cert_cn, dec_buf);
+					if (strlen(rec.cert_cn)){
+						printk("Installed cert: %s\n", rec.cert_cn);
+					} else {
+						printk("Installed cert: %s\n", "<NO CN SPECIFIED>");
+					}
 					fs_write(file, ca_cert, parse_cert_sz);
+					success_cnt++;
 				} else {
-					printk("Cert parse failure.\n\n");
+					printk("Cert parse failure.\n");
 				}
 				mbedtls_x509_crt_free(&ca_x509);
 				memset(dec_buf, 0, 3000);
@@ -235,156 +245,26 @@ static void parse(struct fs_file_t *file, char * fragment, size_t fragment_len)
 
 static size_t http_total_received;
 
-static void response_cb_parser(struct http_response *rsp,
-		enum http_final_call final_data,
-		void *user_data)
-{
-	struct fs_file_t *file = user_data;
-	if (rsp->body_found) {
-		http_total_received += rsp->body_frag_len;
-		parse(file, rsp->body_frag_start, rsp->body_frag_len);
-	}
-}
-
 int tmo_cert_dld(int devid, char *url) 
 {
 	tls_credential_delete(CA_CERTIFICATE_TAG, TLS_CREDENTIAL_CA_CERTIFICATE);
 	tls_credential_add(CA_CERTIFICATE_TAG, TLS_CREDENTIAL_CA_CERTIFICATE,
 			digicert_ca, sizeof(digicert_ca));
-	static struct zsock_addrinfo hints;
-	struct zsock_addrinfo *res = NULL;
-	int sock = -1;
-	struct http_request req;
-	struct http_parser_url u;
-	char port_sz[10];
-	int tls = 0;
 	int ret = -1;
 	struct fs_file_t file = {0};
-
-	const char *headers[] = {
-		NULL
-	};
-
-	memset(&req, 0, sizeof(req));
-
-	http_parser_url_init(&u);
-	http_parser_parse_url(url, strlen(url), 0, &u);
-
-	int port;
-
-	if (u.port != 0) {
-		port = u.port;
-	}
-#if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
-	else if (strncmp(url, HTTPS_PREFIX, strlen(HTTPS_PREFIX)) == 0) {
-		port = 443;
-		tls = 1;
-	}
-#endif
-	else if (strncmp(url, HTTP_PREFIX, strlen(HTTP_PREFIX)) == 0) {
-		port = 80;
-	} else {
-		printf("Error: unsupported schema");
-		return -EINVAL;
-	}
-
-	memset(port_sz, 0, sizeof(port_sz));
-	snprintf(port_sz, sizeof(port_sz), "%d", port);
-	req.method = HTTP_GET;
-	char path[256], host[64];
-	memset(path, 0, 256);
-	if (u.field_set & (1 << UF_PATH)) {
-		memcpy(path, url + u.field_data[UF_PATH].off, u.field_data[UF_PATH].len +
-				(u.field_set & (1 << UF_QUERY) ? u.field_data[UF_QUERY].len + 1 : 0));
-	} else {
-		path[0] = '/';
-	}
-	memset(host, 0, 64);
-	memcpy(host, url + u.field_data[UF_HOST].off, u.field_data[UF_HOST].len);
-
-	req.url = path;
-	req.host = host;
-	req.protocol = "HTTP/1.1";
-	req.header_fields = headers;
-	req.response = response_cb_parser;
-	req.recv_buf = mxfer_buf;
-	req.recv_buf_len = 2000;
-
-	ret = tmo_offload_init(devid);
-	if (ret != 0) {
-		printf("Error: could not init device %d", devid);
-	}
-
-	// hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	ret = zsock_getaddrinfo(host, port_sz, &hints, &res);
-	if (ret) {
-		printf("Failed to resolve host %s\n", host);
-		return -EINVAL;
-	}
-
-	struct net_if *iface = net_if_get_by_index(devid);
-	if (iface == NULL) {
-		printf("Error: interface %d not found", devid);
-		return -EINVAL;
-	}
-
-	if (!tls) {
-		sock = zsock_socket_ext(res->ai_family, res->ai_socktype, res->ai_protocol, iface);
-	}
-#if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
-	else {
-#if IS_ENABLED(CONFIG_TMO_SHELL_USE_MBED)
-		sock = zsock_socket(res->ai_family, res->ai_socktype, IPPROTO_TLS_1_2);
-		if (sock >= 0) {
-			int tls_native = 1;
-			zsock_setsockopt(sock, SOL_TLS, TLS_NATIVE, &tls_native, sizeof(tls_native));
-		}
-#else
-		sock = zsock_socket_ext(res->ai_family, res->ai_socktype, IPPROTO_TLS_1_2, iface);
-#endif
-	}
-#endif
-
-	if (sock < 0) {
-		printf("Error creating socket, ret = %d, errno = %d", sock, errno);
-		goto exit;
-	}
-
-#if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
-	// int tls_native = 1;
-	// zsock_setsockopt(sock, SOL_TLS, TLS_NATIVE, &tls_native, sizeof(tls_native));
-	if (tls) {
-		sec_tag_t sec_tag_opt[] = {
-			CA_CERTIFICATE_TAG,
-		};
-		zsock_setsockopt(sock, SOL_TLS, TLS_SEC_TAG_LIST,
-				sec_tag_opt, sizeof(sec_tag_opt));
-
-		zsock_setsockopt(sock, SOL_TLS, TLS_HOSTNAME,
-				host, strlen(host) + 1);
-#endif
-#if IS_ENABLED(CONFIG_TMO_SHELL_USE_MBED)
-
-		struct ifreq ifreq = {0};
-		strcpy(ifreq.ifr_name, iface->if_dev->dev->name);
-		ret = zsock_setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE,
-				&ifreq, sizeof(ifreq));
-#endif
-	}
-
-	//Now create the socket
-	ret = zsock_connect(sock, res->ai_addr, res->ai_addrlen);
-	if (ret < 0) {
-		printf("Error connecting, ret = %d, errno = %d", ret, errno);
-		goto exit;
-	}
+	struct fs_file_t tmp_file = {0};
+	struct fs_dirent dirent = {0};
 
 	http_total_received = 0;
 
 	// Assume fs is already mounted
 	char *filename = CERT_BIN_LOCATION;
 	printf("Opening file %s\n", filename);
+
+	if (fs_stat(CERT_BIN_FOLDER, &dirent) == -ENOENT) {
+		fs_mkdir(CERT_BIN_FOLDER);
+	}
+
 	ret = fs_open(&file, filename, FS_O_CREATE | FS_O_WRITE);
 	if (ret != 0) {
 		printf("Error: could not open file %s\n", filename);
@@ -396,17 +276,39 @@ int tmo_cert_dld(int devid, char *url)
 		printf("Could not truncate file %s\n", filename);
 		goto exit;
 	}
-	ret = http_client_req(sock, &req, 5000, &file);
+
+	http_total_received = tmo_http_download(devid, url, "/tmo/certs.tmp");
+	
+	if (http_total_received <= 0) {
+		goto exit;
+	}
+
+	ret = fs_open(&tmp_file, "/tmo/certs.tmp", FS_O_READ);
+	if (ret != 0) {
+		printf("Error: could not open file %s\n", "/tmo/certs.tmp");
+		goto exit;
+	}
+
+	ssize_t read;
+	char frag_buf[64];
+
+	cert_cnt = 0;
+	success_cnt = 0;
+
+	printf("\n");
+	do {
+		read = fs_read(&tmp_file, frag_buf, 64);
+		parse(&file, frag_buf, read);
+	} while (read);
+
+	fs_close(&tmp_file);
+	fs_unlink("/tmo/certs.tmp");
+	
+	// ret = http_client_req(sock, &req, 5000, &file);
+	printf("Downloaded %d certs, installed %d sucessfully\n", cert_cnt, success_cnt);
 exit:
-	if (res) {
-		freeaddrinfo(res);
-	}
-	if (filename) {
-		fs_close(&file);
-	}
-	if (sock >= 0) {
-		zsock_close(sock);
-	}
+	fs_close(&file);
+	fs_close(&tmp_file);
 	if (ret < 0) {
 		return ret;
 	} else {
@@ -418,16 +320,20 @@ int cmd_tmo_cert_dld(const struct shell *shell, size_t argc, char **argv)
 {
 	int ret = -1;
 
-	if (argc < 3) {
+	if (argc < 2 || argc > 3) {
 		shell_error(shell, "Missing required argument");
-		shell_print(shell, "Usage: tmo cert dld <devid> <URL>"
+		shell_print(shell, "Usage: tmo certs dld <devid> <URL>"
 				"       devid: 1 for modem, 2 for wifi\n");
 		// z_shell_help_subcmd_print_selitem(shell);
 		return -EINVAL;
 	}
 
 	int devid = strtol(argv[1], NULL, 10);
-	ret = tmo_cert_dld(devid, argv[2]);
+	if (argc < 3) {
+		ret = tmo_cert_dld(devid, "https://ccadb-public.secure.force.com/mozilla/IncludedRootsPEMTxt?TrustBitsInclude=Websites");
+	} else {
+		ret = tmo_cert_dld(devid, argv[2]);
+	}
 	if (ret < 0) {
 		shell_error(shell, "tmo_http_download returned %d", ret);
 	}

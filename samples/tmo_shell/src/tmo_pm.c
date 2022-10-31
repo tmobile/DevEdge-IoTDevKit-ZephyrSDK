@@ -22,7 +22,9 @@ int cmd_pmresume(const struct shell *shell, int argc, char** argv)
 	}
 
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_RESUME);
-	if (ret) {
+	if (ret == -ENOTSUP) {
+		shell_warn(shell, "Device %s does not support action PM_DEVICE_ACTION_RESUME; Command ignored", argv[1]);
+	} else if (ret) {
 		shell_error(shell, "Failed to execute power management action, err=%d", ret);
 	}
 	return ret;
@@ -40,7 +42,9 @@ int cmd_pmsuspend(const struct shell *shell, int argc, char** argv)
 	}
 
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
-	if (ret) {
+	if (ret == -ENOTSUP) {
+		shell_warn(shell, "Device %s does not support action PM_DEVICE_ACTION_SUSPEND; Command ignored", argv[1]);
+	} else if (ret) {
 		shell_error(shell, "Failed to execute power management action, err=%d", ret);
 	}
 	return ret;
@@ -58,7 +62,9 @@ int cmd_pmoff(const struct shell *shell, int argc, char** argv)
 	}
 
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
-	if (ret) {
+	if (ret == -ENOTSUP) {
+		shell_warn(shell, "Device %s does not support action PM_DEVICE_ACTION_TURN_OFF; Command ignored", argv[1]);
+	} else if (ret) {
 		shell_error(shell, "Failed to execute power management action, err=%d", ret);
 	}
 	return ret;
@@ -76,7 +82,9 @@ int cmd_pmon(const struct shell *shell, int argc, char** argv)
 	}
 
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_ON);
-	if (ret) {
+	if (ret == -ENOTSUP) {
+		shell_warn(shell, "Device %s does not support action PM_DEVICE_ACTION_TURN_ON; Command ignored", argv[1]);
+	} else if (ret) {
 		shell_error(shell, "Failed to execute power management action, err=%d", ret);
 	}
 
