@@ -44,6 +44,9 @@ static inline void strupper(char *p) { while (*p) *p++ &= 0xdf;}
 #define uuid128(...) BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(__VA_ARGS__))
 extern bool battery_is_charging;
 
+extern struct bt_conn *get_acl_conn(int i);
+extern int get_active_le_conns();
+
 K_SEM_DEFINE(update_sem, 0, 1);
 
 /**
@@ -203,7 +206,7 @@ static ssize_t battery_voltage_get(struct bt_conn *conn,
                 set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
         }
 
-        if (battery_attached !=  0) {
+        if (battery_attached) {
                 millivolts = read_battery_voltage();
                 millivolts_to_percent(millivolts, &percent);
         }
@@ -215,12 +218,15 @@ static ssize_t battery_power_source_get(struct bt_conn *conn,
                                 uint16_t len, uint16_t offset)
 {
 	uint8_t power_source;
-	if (battery_is_charging == true) {
+	uint8_t charging, vbus, battery_attached, fault;
+
+	set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	if (charging || !battery_attached) {
 		power_source = ON_CHARGER_POWER;
 	} else {
 		power_source = ON_BATTERY_POWER;
 	}
-        return bt_gatt_attr_read(conn, attr, buf, len, offset, (uint8_t*) &power_source, 1);
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, (uint8_t*) &power_source, 1);
 }
 
 static void dummy_ccc_cfg_changed(const struct bt_gatt_attr *attr,
@@ -347,12 +353,12 @@ BT_GATT_SERVICE_DEFINE(bas,
 				   BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
 				   BT_GATT_PERM_READ, battery_voltage_get, NULL,
 				   NULL),
-        BT_GATT_CHARACTERISTIC(UUID_BAS_BATTERY_POWER_SOURCE,
+	BT_GATT_CCC(dummy_ccc_cfg_changed,
+			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
+	BT_GATT_CHARACTERISTIC(UUID_BAS_BATTERY_POWER_SOURCE,
                                    BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
                                    BT_GATT_PERM_READ, battery_power_source_get, NULL,
                                    NULL),
-	BT_GATT_CCC(dummy_ccc_cfg_changed,
-			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 		);
 
 #define UUID_SERVICE_AUTOMATION_IO \
@@ -775,8 +781,10 @@ void ble_notif_thread(void *a, void *b, void *c)
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
 	uint8_t button_last_state = 0;
+	uint8_t battery_last_percent = 0;
+
 	while (1) {
-		k_sem_take(&update_sem, K_MSEC(500));
+		k_sem_take(&update_sem, K_MSEC(200));
 		if (acc_notify) {
 			int16_t acc_value[3] = {0};
 
@@ -802,7 +810,7 @@ void ble_notif_thread(void *a, void *b, void *c)
 			}
 			bt_gatt_notify(NULL, &acc_ori_svc.attrs[1], &acc_value, 6);
 		}
-		if (aio_btn_notify && aio_btn_pushed != button_last_state){
+		if (get_active_le_conns() && aio_btn_notify && aio_btn_pushed != button_last_state){
 			button_last_state = aio_btn_pushed;
 			bt_gatt_notify(NULL, &aio_svc.attrs[1], &aio_btn_pushed, 1);
 		} else if (aio_btn_pushed != button_last_state && aio_btn_pushed) {
@@ -814,6 +822,17 @@ void ble_notif_thread(void *a, void *b, void *c)
 		if (las_notify){
 			ln_buf_gen();
 			bt_gatt_notify(NULL, &ln_svc.attrs[2], ln_las_buf, sizeof(ln_las_buf));
+		}
+		uint8_t charging, vbus, battery_attached, fault, percent;
+	
+		set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+		if (battery_attached) {
+			uint32_t millivolts = read_battery_voltage();
+			millivolts_to_percent(millivolts, &percent);
+			if (battery_last_percent != percent) {
+				bt_gatt_notify(NULL, &bas.attrs[1], &percent, sizeof(percent));
+			}
+			battery_last_percent = percent;
 		}
 	}
 }
@@ -996,9 +1015,6 @@ int cmd_ble_adv_ibeacon(const struct shell *shell, size_t argc, char **argv)
 	shell_print(shell, "Advertising successfully started\n");
 	return 0;
 }
-
-extern struct bt_conn *get_acl_conn(int i);
-extern int get_active_le_conns();
 
 int cmd_ble_conn_rssi(const struct shell *shell, size_t argc, char** argv)
 {
