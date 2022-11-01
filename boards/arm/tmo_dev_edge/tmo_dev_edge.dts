@@ -258,8 +258,7 @@
 
     /*AMS Temperature Sensor */
     as6212: as6212@48 {
-        compatible = "ams,as6212", "ti,tmp108";
-        variant-as621x;
+        compatible = "ams,as6212";
         reg = <0x48 0x4>;
         status = "okay";
         alert-gpios = <&gpiof 14 GPIO_ACTIVE_LOW>;
