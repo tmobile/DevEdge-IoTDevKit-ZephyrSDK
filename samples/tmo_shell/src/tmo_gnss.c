@@ -16,6 +16,7 @@
 #include <bluetooth/gatt.h>
 #include <zephyr.h>
 #include <drivers/sensor.h>
+#include <drivers/sensor/gnss.h>
 #include <drivers/sensor/cxd5605.h>
 #include <drivers/flash.h>
 #include <device.h>
