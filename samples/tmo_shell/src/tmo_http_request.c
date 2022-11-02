@@ -502,6 +502,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 		errno = 0;
 		ret = http_client_req(sock, &req, 5000, NULL);
 		while (http_content_length && http_content_length > http_total_received && fail_count < 5) {
+			fail_count++;
 			printf("\nTransfer failure detected, reinitializing transfer... (%d/5) (%d < %d)\n", fail_count, http_total_received, http_content_length);
 			zsock_close(sock);
 			sock = create_http_socket(tls, host, res, iface);
