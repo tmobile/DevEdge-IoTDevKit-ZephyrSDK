@@ -86,12 +86,20 @@ if(DEFINED ENV{ZEPHYR_BASE_TAG})
 	add_compile_definitions(VERSION_ZEPHYR_BASE_TAG="$ENV{ZEPHYR_BASE_TAG}")
 else()
 	execute_process(
-		COMMAND bash ${CMAKE_SOURCE_DIR}/get_zephyr_tag.sh
+		COMMAND bash ${CMAKE_SOURCE_DIR}/get_zephyr_last_rebase_tag.sh
 		WORKING_DIRECTORY ${ZEPHYR_BASE}
 		OUTPUT_VARIABLE ZEPHYR_BASE_TAG
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 	)
-	if ("${ZEPHYR_BASE_TAG}" STREQUAL "") 
+	if ("${ZEPHYR_BASE_TAG}" STREQUAL "")
+		execute_process(
+			COMMAND bash ${CMAKE_SOURCE_DIR}/get_zephyr_init_commit_tag.sh
+			WORKING_DIRECTORY ${ZEPHYR_BASE}
+			OUTPUT_VARIABLE ZEPHYR_BASE_TAG
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+		)
+	endif()
+	if ("${ZEPHYR_BASE_TAG}" STREQUAL "")
 		set(ZEPHYR_BASE_TAG "UNKNOWN")
 	endif()
 	message("ZEPHYR_BASE_TAG: ${ZEPHYR_BASE_TAG}")
@@ -103,12 +111,12 @@ if(DEFINED ENV{TMO_RTOS_TAG})
 	add_compile_definitions(VERSION_TMO_RTOS_TAG="$ENV{TMO_RTOS_TAG}")
 else()
 	execute_process(
-		COMMAND git describe --dirty
+		COMMAND git describe --dirty --tags
 		WORKING_DIRECTORY ${ZEPHYR_BASE}
 		OUTPUT_VARIABLE RAW_TMO_RTOS_TAG
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 	)
-	if ("${RAW_TMO_RTOS_TAG}" STREQUAL "") 
+	if ("${RAW_TMO_RTOS_TAG}" STREQUAL "")
 		set(RAW_TMO_RTOS_TAG "UNKNOWN")
 	endif()
 	string(REPLACE "-dirty" "+" TMO_RTOS_TAG ${RAW_TMO_RTOS_TAG})
@@ -133,7 +141,7 @@ else()
 		OUTPUT_VARIABLE RAW_TMO_SDK_TAG
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 	)
-	if ("${RAW_TMO_SDK_TAG}" STREQUAL "") 
+	if ("${RAW_TMO_SDK_TAG}" STREQUAL "")
 		set(RAW_TMO_SDK_TAG "UNKNOWN")
 	endif()
 	string(REPLACE "-dirty" "+" TMO_SDK_TAG ${RAW_TMO_SDK_TAG})
