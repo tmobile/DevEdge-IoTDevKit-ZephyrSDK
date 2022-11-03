@@ -223,9 +223,13 @@ int  create_json()
 	total_bytes_written += ret_val;
 
 	if (ret_val >= 0 && total_bytes_written < buffer_size) {
-		get_cell_strength(&val);
-		ret_val = snprintf(json_payload+total_bytes_written, num_bytes_avail_buffer,
+		if (get_cell_strength(&val) == 0) {
+			ret_val = snprintf(json_payload+total_bytes_written, num_bytes_avail_buffer,
 				"\"cellSignalStrength\":{\n\"dbm\":%d\n},\n", val);
+		} else {
+			ret_val = snprintf(json_payload+total_bytes_written, num_bytes_avail_buffer,
+				"\"cellSignalStrength\":{\n\"dbm\":null\n},\n");
+		}
 	} else {
 		return ret_val;
 	}
