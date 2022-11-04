@@ -106,6 +106,7 @@ uint8_t mxfer_buf[XFER_SIZE+1];
 int max_fragment = 1000;
 bool board_has_gnss = false;
 
+int murata_socket_offload_init(void);
 int rs9116w_socket_offload_init(void);
 void dump_addrinfo(const struct shell *shell, const struct addrinfo *ai);
 int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **argv, int sd);
