@@ -23,9 +23,8 @@
 #include "tmo_web_demo.h"
 #include "tmo_http_request.h"
 #include "tmo_shell.h"
-#include "tmo_batt_charger.h"
+#include "tmo_battery_ctrl.h"
 
-extern bool battery_is_charging;
 static struct web_demo_settings_t web_demo_settings = {false, 0, 2, TRANSMIT_INTERVAL_SECS_WEB};
 #define MAX_BASE_URL_SIZE  100
 #define MAX_PATH_SIZE      100
@@ -204,7 +203,7 @@ int  create_json()
 		if (battery_attached !=0) {
 			millivolts = read_battery_voltage();
 			millivolts_to_percent(millivolts, &percent);
-			if (battery_is_charging) {
+			if (is_battery_charging()) {
 				e_bat_state = battery_state_charging;
 			} else {
 				e_bat_state = battery_state_not_charging;
@@ -305,36 +304,6 @@ char* get_json_payload_pointer()
 	return json_payload;
 }
 
-#if DT_NODE_EXISTS(DT_NODELABEL(pmic))
-extern int get_pmic_charger_vbus_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault);
-#endif
-
-void set_battery_charging_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault)
-{
-#if DT_NODE_EXISTS(DT_NODELABEL(bq24250))
-	int status = get_bq24250_charger_vbus_status(charging, vbus, attached, fault);
-#endif
-
-#if DT_NODE_EXISTS(DT_NODELABEL(pmic))
-	int status = get_pmic_charger_vbus_status(charging, vbus, attached, fault);
-#endif
-
-	if (status == 0) {
-		if (!vbus) {
-			// Charger is missing VBUS and is NOT charging
-			battery_is_charging = false;
-		}
-		else {
-			if (vbus && charging) {
-				// Charger has VBUS and is charging
-				battery_is_charging = true;
-			}
-		}
-	} else {
-		printf("Charger VBUS status command failed\n");
-	}
-}
-
 static void tmo_web_demo_notif_thread(void *a, void *b, void *c)
 {
 	ARG_UNUSED(a);
@@ -347,7 +316,7 @@ static void tmo_web_demo_notif_thread(void *a, void *b, void *c)
 		uint8_t charging = 0;
 		uint8_t vbus = 0;
 		if (get_transmit_flag()) {
-			set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+			get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 			create_json();
 			increment_number_http_requests();
 			tmo_http_json();

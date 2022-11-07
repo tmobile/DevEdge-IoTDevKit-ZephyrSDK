@@ -10,7 +10,9 @@
 #include <drivers/i2c.h>
 #include <drivers/gpio.h>
 #include <sys/byteorder.h>
-#include "tmo_batt_charger.h"
+#include "tmo_bq24250.h"
+
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(bq24250), okay)
 
 #define BQ_GPIO_F_NAME               "GPIO_F"
 #define BQ_CHARGE_INT                12      /* PF12 - configured here */
@@ -46,9 +48,9 @@ static const struct device *i2c1_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 static struct gpio_callback gpio_batt_chrg_cb;
 int bq_battery_charge_int_isr_count = 0;
 bool bq_battery_charge_int_state_change = false;
-
 uint8_t i2c_read_data[20];
-static int i2c_read_to_buffer( uint8_t dev_addr, int reg_addr, uint8_t *buf, uint8_t buf_length)
+
+static int i2c_read_to_buffer(uint8_t dev_addr, int reg_addr, uint8_t *buf, uint8_t buf_length)
 {
 	const struct device *dev;
 	uint8_t reg_addr_buf[MAX_BYTES_FOR_REGISTER_INDEX];
@@ -72,11 +74,10 @@ static int i2c_read_to_buffer( uint8_t dev_addr, int reg_addr, uint8_t *buf, uin
 		printf("Failed to read from device: 0x%x", dev_addr);
 		return -EIO;
 	}
-
 	return 0;
 }
 
-int get_bq24250_charger_vbus_status (uint8_t * charging, uint8_t * vbus, uint8_t * attached, uint8_t * fault)
+int get_bq24250_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault)
 {
 	int ret = 0;
 	uint8_t bq_addr = 0x6a;
@@ -93,40 +94,38 @@ int get_bq24250_charger_vbus_status (uint8_t * charging, uint8_t * vbus, uint8_t
 	uint8_t charger_status = ((bq_reg_0x00_data & 0x30) >> 4);
 	uint8_t charge_fault_status = (bq_reg_0x00_data & 0x0F);
 
+	*vbus = 0;
+	*charging = 0;
+	*attached = 0;
+	*fault = 0;
 
-        *vbus = 0;
-        *charging = 0;
-        *attached = 0;
-        *fault = 0;
-
-        if ((charger_status == 3) && (charge_fault_status > 0 )) {
-                *vbus = 0;
-                *charging = 0;
-                if (charge_fault_status == 8) {
-                        *attached = 0;
-                }
-                else {
-                        *attached = 1;
-                        *fault = 1;
-                }
-        }
-        else {
-                if ((charger_status == 1) && (charge_fault_status == 0)) {
-                        *vbus = 1;
-                        *charging = 1;
-                        *attached = 1;
-                }
-                else {
-                        *vbus = 1;
-                        *charging = 0;
-                        *attached = 1;
-                }
-        }
-
-        return ret;
+	if ((charger_status == 3) && (charge_fault_status > 0 )) {
+		*vbus = 0;
+		*charging = 0;
+		if (charge_fault_status == 8) {
+			*attached = 0;
+		}
+		else {
+			*attached = 1;
+			*fault = 1;
+		}
+	}
+	else {
+		if ((charger_status == 1) && (charge_fault_status == 0)) {
+			*vbus = 1;
+			*charging = 1;
+			*attached = 1;
+		}
+		else {
+			*vbus = 1;
+			*charging = 0;
+			*attached = 1;
+		}
+	}
+	return ret;
 }
 
-static int check_battery_charger_regs (void)
+static int check_battery_charger_regs(void)
 {
 	int ret = 0;
 
@@ -240,18 +239,17 @@ static int check_battery_charger_regs (void)
 				break;
 		}
 	}
-
 	return ret;
 }
 
-void bq_intr_callback(const struct device *port,
+static void bq_intr_callback(const struct device *port,
 		struct gpio_callback *cb, uint32_t pins)
 {
 	bq_battery_charge_int_isr_count++;
 	bq_battery_charge_int_state_change = true;
 }
 
-void bq_thread(void *a, void *b, void *c)
+static void bq_thread(void *a, void *b, void *c)
 {
 	ARG_UNUSED(a);
 	ARG_UNUSED(b);
@@ -330,7 +328,6 @@ void bq_thread(void *a, void *b, void *c)
 #define BQ_NOTIF_THREAD_STACK_SIZE 2048
 #define BQ_NOTIF_THREAD_PRIORITY CONFIG_MAIN_THREAD_PRIORITY
 
-#if DT_NODE_HAS_STATUS(DT_NODELABEL(bq24250), okay)
 K_THREAD_DEFINE(bq_tid, BQ_NOTIF_THREAD_STACK_SIZE,
 		bq_thread, NULL, NULL, NULL,
 		BQ_NOTIF_THREAD_PRIORITY, 0, 0);

@@ -25,7 +25,6 @@ enum battery_state {
 	battery_state_attached
 };
 
-void set_battery_charging_status(uint8_t* charging, uint8_t* vbus, uint8_t* attached, uint8_t* fault);
 bool get_transmit_flag();
 bool set_transmit_json_flag( bool user_transmit_setting);
 void set_transmit_interval(int secs);

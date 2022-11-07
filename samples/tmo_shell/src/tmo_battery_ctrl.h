@@ -32,7 +32,8 @@
 #define CUR_STAT_FAULT        40
 
 bool getBatteryPercent(uint8_t *bv);
-void apply_filter(float *bv);
 float get_remaining_capacity(float battery_voltage);
+bool is_battery_charging(void);
+int get_battery_charging_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault);
 
 #endif
