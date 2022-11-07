@@ -51,7 +51,6 @@ typedef int sec_tag_t;
 #include "tmo_certs.h"
 #include "tmo_adc.h"
 #include "tmo_battery_ctrl.h"
-#include "tmo_batt_charger.h"
 #include "tmo_shell.h"
 #include "tmo_sntp.h"
 
@@ -1830,23 +1829,15 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
-extern int get_pmic_charger_vbus_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault);
-
 int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 {
-	shell_print(shell, "\tget charger VBUS status...");
 	int status;
 	uint8_t charging = 0;
 	uint8_t vbus = 0;
 	uint8_t attached = 0;
 	uint8_t fault = 0;
-#if DT_NODE_EXISTS(DT_NODELABEL(bq24250)) 
-	status = get_bq24250_charger_vbus_status(&charging, &vbus, &attached, &fault);
-#endif
 
-#if DT_NODE_EXISTS(DT_NODELABEL(pmic))
-	status = get_pmic_charger_vbus_status(&charging, &vbus, &attached, &fault);
-#endif
+	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
 	if (status != 0) {
 		shell_error(shell, "Charger VBUS status command failed");
 	}
@@ -1868,22 +1859,15 @@ int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
-int cmd_battery_voltage (const struct shell *shell, size_t argc, char **argv)
+int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 {
 	uint32_t millivolts = 0;
 	uint8_t battery_attached = 0;
 	uint8_t charging = 0;
-
         uint8_t vbus = 0;
 	uint8_t fault = 0;
-#if DT_NODE_EXISTS(DT_NODELABEL(bq24250))
-        get_bq24250_charger_vbus_status(&charging, &vbus, &battery_attached, &fault);
-#endif
 
-#if DT_NODE_EXISTS(DT_NODELABEL(pmic))
-	get_pmic_charger_vbus_status(&charging, &vbus, &battery_attached, &fault);
-#endif
-
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 	if (battery_attached !=  0) {
 		millivolts = read_battery_voltage();
 	}
@@ -1900,7 +1884,8 @@ int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 	uint8_t charging = 0;
         uint8_t vbus = 0;
 	uint8_t fault= 0;
-	set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 	if (battery_attached !=  0) {
 		millivolts = read_battery_voltage();
 		millivolts_to_percent(millivolts, &percent);

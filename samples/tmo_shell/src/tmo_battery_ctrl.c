@@ -7,18 +7,22 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <devicetree.h>
+
+#if DT_NODE_EXISTS(DT_NODELABEL(bq24250))
+#include "tmo_bq24250.h"
+#endif
 
 #include "tmo_battery_ctrl.h"
 
 #define TABLE_LEN 11
 #define TABLE_VOLTAGE 0
-#define TABLE_PERCENTAGE 1
-
-/** According to NSEP-720 Jm-battery-modeling.xlsx **/
+#define TABLE_PERCENT 1
 
 // 100% value based on actual new battery measurement
 static float battery_discharging_tbl [TABLE_LEN][2] = {
-	{4.160, 100.0 },
+	{4.145, 100.0 },
 	{4.072, 90.0  },
 	{3.992, 80.0  },
 	{3.923, 70.0  },
@@ -31,9 +35,8 @@ static float battery_discharging_tbl [TABLE_LEN][2] = {
 	{3.632,  0.0  }};
 
 // 100% value based on actual new battery measurement
-// 90% value based on an old dev board only getting to 4.135V fully charged
 static float battery_charging_tbl [TABLE_LEN][2] = {
-	{4.180, 100.0 },
+	{4.175, 100.0 },
 	{4.130, 90.0  },
 	{4.071, 80.0  },
 	{4.005, 70.0  },
@@ -45,8 +48,16 @@ static float battery_charging_tbl [TABLE_LEN][2] = {
 	{3.741, 10.0  },
 	{3.597,  0.0  }};
 
-// extern bool battery_is_charging; The following line needs to be placed in the battery charging code
-bool battery_is_charging = false;
+bool is_battery_charging()
+{
+	uint8_t charging;
+	uint8_t vbus;
+	uint8_t attached;
+	uint8_t fault;
+
+	get_battery_charging_status(&charging, &vbus, &attached, &fault);
+	return (vbus && charging);
+}
 
 float get_remaining_capacity(float battery_voltage)
 {
@@ -55,7 +66,7 @@ float get_remaining_capacity(float battery_voltage)
 	float low_voltage = 0.0;
 	uint32_t i;
 
-	if (battery_is_charging)
+	if (is_battery_charging())
 		voltage_capacity_table = &battery_charging_tbl;
 	else
 		voltage_capacity_table = &battery_discharging_tbl;
@@ -85,26 +96,24 @@ float get_remaining_capacity(float battery_voltage)
 		return 0.0;
 	}
 
-	// make sure the averaging algorithm zeros the return value if
-	// the voltage capacity is less than 10 percent
-
-	float pct_gap = (float) (*voltage_capacity_table)[i-1][TABLE_PERCENTAGE] - (*voltage_capacity_table)[i][TABLE_PERCENTAGE];
-	return ((battery_voltage - low_voltage) / (high_voltage - low_voltage) * pct_gap) + (*voltage_capacity_table)[i][TABLE_PERCENTAGE];
+	float pct_gap = (float) (*voltage_capacity_table)[i-1][TABLE_PERCENT] - (*voltage_capacity_table)[i][TABLE_PERCENT];
+	return ((battery_voltage - low_voltage) / (high_voltage - low_voltage) * pct_gap) + (*voltage_capacity_table)[i][TABLE_PERCENT];
 }
 
-void apply_filter(float *bv)
+#if DT_NODE_EXISTS(DT_NODELABEL(pmic))
+extern int get_pmic_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault, uint8_t *charge_status);
+#endif
+
+int get_battery_charging_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault)
 {
-	static float s_filtered_capacity = -1;
-	static bool s_battery_is_charging = false;
+#if DT_NODE_EXISTS(DT_NODELABEL(bq24250))
+	int status = get_bq24250_status(charging, vbus, attached, fault);
+#endif
 
-	// If there has been a switch between charger and battery, reset the filter
-	if (s_battery_is_charging != battery_is_charging) {
-		s_battery_is_charging = battery_is_charging;
-		s_filtered_capacity = -1;
-	}
+#if DT_NODE_EXISTS(DT_NODELABEL(pmic))
+	uint8_t charge_status;
+	int status = get_pmic_status(charging, vbus, attached, fault, &charge_status);
+#endif
 
-	if (s_filtered_capacity < 0) {
-		s_filtered_capacity = *bv;
-	}
-	*bv = s_filtered_capacity = s_filtered_capacity * 0.95 + (*bv) * 0.05;
+	return status;
 }

@@ -69,8 +69,30 @@ void initADC (void)
 }
 
 /***************************************************************************
- * @brief  This function writes the amount of battery charge remaing (to the
- *         nearest 1%) in bv.
+ * @brief  Exponential filter for battery level
+ ***************************************************************************/
+static void apply_filter(float *bv)
+{
+	static float s_filtered_capacity = -1;
+	static bool s_battery_is_charging = false;
+	bool battery_is_charging;
+
+	// If there has been a switch between charger and battery, reset the filter
+	battery_is_charging = is_battery_charging();
+	if (s_battery_is_charging != battery_is_charging) {
+		s_battery_is_charging = battery_is_charging;
+		s_filtered_capacity = -1;
+	}
+
+	if (s_filtered_capacity < 0) {
+		s_filtered_capacity = *bv;
+	}
+	*bv = s_filtered_capacity = s_filtered_capacity * 0.95 + (*bv) * 0.05;
+}
+
+/***************************************************************************
+ * @brief  This function writes the amount of battery charge remaining
+ *         (to the nearest 1%) in bv.
  *         It returns true if successful, or false if there is an issue
  ***************************************************************************/
 bool millivolts_to_percent(uint32_t millivolts, uint8_t *percent) {
@@ -87,6 +109,7 @@ int read_battery_voltage(void)
 {
 	uint32_t sample;
 	uint32_t millivolts;
+	float millivolts_f;
 	// Start ADC conversion
 	k_sem_take(&adc_sem, K_MSEC(500));
 	ADC_Start(ADC0, adcStartSingle);
@@ -100,11 +123,11 @@ int read_battery_voltage(void)
 	k_sem_give(&adc_sem);
 
 	// Calculate input voltage in mV
-	millivolts = (sample * 2500) / 4096;
+	millivolts_f = (sample * 2500.0) / 4096.0;
 
 	// On the 2nd generation dev edge, voltage on PA2 is
 	// one third the actual battery voltage
-	millivolts = 3 * millivolts;
+	millivolts = (uint32_t) (3.0 * millivolts_f + 0.5);
 
 	return (millivolts);
 }

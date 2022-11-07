@@ -36,13 +36,13 @@
 #include "tmo_gnss.h"
 #include "tmo_smp.h"
 #include "tmo_shell.h"
+#include "tmo_battery_ctrl.h"
 
 #define ON_CHARGER_POWER 0
 #define ON_BATTERY_POWER 1
 
 static inline void strupper(char *p) { while (*p) *p++ &= 0xdf;}
 #define uuid128(...) BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(__VA_ARGS__))
-extern bool battery_is_charging;
 
 extern struct bt_conn *get_acl_conn(int i);
 extern int get_active_le_conns();
@@ -195,15 +195,16 @@ static ssize_t battery_voltage_get(struct bt_conn *conn,
         uint8_t charging = 0;
         uint8_t vbus = 0;
         uint8_t fault = 0;
-        set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+
+        get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 
         /* flush the fault status out by reading again */
         if (fault) {
-                set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+                get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
         }
-        /* there can be 2 of these 2 flush */
+        /* there can be 2 of these to flush */
         if (fault) {
-                set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+                get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
         }
 
         if (battery_attached) {
@@ -220,8 +221,8 @@ static ssize_t battery_power_source_get(struct bt_conn *conn,
 	uint8_t power_source;
 	uint8_t charging, vbus, battery_attached, fault;
 
-	set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (charging || !battery_attached) {
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	if (vbus) {
 		power_source = ON_CHARGER_POWER;
 	} else {
 		power_source = ON_BATTERY_POWER;
@@ -234,7 +235,6 @@ static void dummy_ccc_cfg_changed(const struct bt_gatt_attr *attr,
 {
 	printf("CCC: %2x\n", value);
 }
-
 
 /**
  * @brief Acceleration CCC callback
@@ -825,7 +825,7 @@ void ble_notif_thread(void *a, void *b, void *c)
 		}
 		uint8_t charging, vbus, battery_attached, fault, percent;
 	
-		set_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 		if (battery_attached) {
 			uint32_t millivolts = read_battery_voltage();
 			millivolts_to_percent(millivolts, &percent);
@@ -836,7 +836,6 @@ void ble_notif_thread(void *a, void *b, void *c)
 		}
 	}
 }
-
 
 #define BLE_NOTIF_THREAD_STACK_SIZE 2048
 #define BLE_NOTIF_THREAD_PRIORITY CONFIG_MAIN_THREAD_PRIORITY
