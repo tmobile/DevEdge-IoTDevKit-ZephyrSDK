@@ -1,8 +1,71 @@
 #include <ctype.h>
 #include <zephyr/posix/time.h>
+#include <net/socket.h>
 #include <zephyr/sys/timeutil.h>
 #include "tmo_shell.h"
 #include "tmo_sntp.h"
+#include <stdio.h>
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(sntp_client, LOG_LEVEL_DBG);
+
+#include <zephyr/net/sntp.h>
+#ifdef CONFIG_POSIX_API
+#include <arpa/inet.h>
+#endif
+
+#include <stdlib.h>
+#include <string.h>
+
+
+static int resolve_dns(const char *host, char *ip_str, int *ipVer)
+{
+    struct addrinfo hints;
+    struct addrinfo *res;
+    int errcode;
+    char addrstr[100];
+    void *ptr = NULL;
+
+    memset (&hints, 0, sizeof (hints));
+    hints.ai_family = PF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags |= AI_CANONNAME;
+
+    errcode = getaddrinfo (host, NULL, &hints, &res);
+    if (errcode != 0)
+    {
+        printf ("[sntp] getaddrinfo\n");
+        return -1;
+    }
+    
+	if (!res) {
+		printf("[sntp] result is null\n");
+		return -1;
+	}
+
+    printf ("[sntp] Host: %s\n", host);
+	inet_ntop (res->ai_family, res->ai_addr->data, addrstr, 100);
+
+	switch (res->ai_family)
+    {
+        case AF_INET:
+            ptr = &((struct sockaddr_in *) res->ai_addr)->sin_addr;
+			*ipVer = 4;
+        break;
+        case AF_INET6:
+            ptr = &((struct sockaddr_in6 *) res->ai_addr)->sin6_addr;
+			*ipVer = 6;
+        break;
+    }
+
+	inet_ntop (res->ai_family, ptr, addrstr, 100);
+	memcpy(ip_str, addrstr, strlen(addrstr));
+	*ipVer = res->ai_family == PF_INET6 ? 6 : 4;
+	printf ("[sntp] IPv%d address: %s\n", *ipVer,ip_str);
+	freeaddrinfo(res);
+    return 0;
+}
+
 
 static void date_print(const struct shell *shell, struct tm *tm)
 {
@@ -17,7 +80,7 @@ static void date_print(const struct shell *shell, struct tm *tm)
 			tm->tm_sec);
 }
 
-static int time_date_set(const struct shell *shell, time_t epoch_sec)
+static int time_date_set(const struct shell *shell, uint32_t epoch_sec)
 {
 #if defined(CONFIG_TIME_GECKO_RTCC)
 	uint32_t time = 0;    ///< RTCC_TIME - Time of Day Register
@@ -26,7 +89,7 @@ static int time_date_set(const struct shell *shell, time_t epoch_sec)
 #endif
 	struct tm tm;
 	struct timespec tp;
-	tp.tv_sec = epoch_sec;
+	tp.tv_sec = (uint32_t)epoch_sec;
 
 	gmtime_r(&tp.tv_sec, &tm);
 	date_print(shell,&tm);
@@ -74,32 +137,23 @@ static int time_date_set(const struct shell *shell, time_t epoch_sec)
 	return 0;
 }
 
-static uint32_t inet_addr(const char* ipAddress)
+int isValidIpAddress(char *ipAddress)
 {
-	uint8_t ipbytes[4]={};
-	int i =0;
-	int8_t j=3;
-	while (ipAddress+i && i<strlen(ipAddress))
-	{
-		char digit = ipAddress[i];
-		if (isdigit(digit) == 0 && digit!='.'){
-			return 0;
-		}
-		j=digit=='.'?j-1:j;
-		ipbytes[j]= ipbytes[j]*10 + atoi(&digit);
-
-		i++;
-	}
-
-	uint32_t a = ipbytes[3];
-	uint32_t b =  ( uint32_t)ipbytes[2] << 8;
-	uint32_t c =  ( uint32_t)ipbytes[1] << 16;
-	uint32_t d =  ( uint32_t)ipbytes[0] << 24;
-	return a+b+c+d;
+    struct sockaddr_in sa;
+    return inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
 }
 
-int tmo_update_time(const struct shell *shell,char *serverIp)
+
+int tmo_update_time(const struct shell *shell, char *host)
 {
+#if defined(CONFIG_NET_IPV6)
+#ifdef DEBUG
+	struct sockaddr_in6 addr6;
+#endif
+#endif
+	char ip_addr[100];
+	int ipVer = 4;
+
 	// Create and zero out the packet. All 48 bytes worth.
 	ntp_packet packet = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 	memset( &packet, 0, sizeof( ntp_packet ) );
@@ -119,11 +173,28 @@ int tmo_update_time(const struct shell *shell,char *serverIp)
 		shell_error(shell, "Socket creation failed, errno = %d", errno);
 		return 0;
 	}
+
+	memset(ip_addr, 0, sizeof(char) * 100);
+    if (isValidIpAddress(host)) {
+#ifdef DEBUG
+        shell_print(shell, "ip");
+#endif
+        strncpy(ip_addr,host, strlen(host));
+    }
+    else {
+#ifdef DEBUG
+        shell_print(shell, "dns");
+#endif
+		resolve_dns(host, ip_addr, &ipVer);
+    }
+
 	struct sockaddr_in sin;
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(SNTP_PORT);
-	sin.sin_addr.s_addr = inet_addr(serverIp);
-	shell_error(shell, "IP Address %s converted %d", serverIp, sin.sin_addr.s_addr);
+	inet_pton(AF_INET, ip_addr, &sin.sin_addr);
+#ifdef DEBUG
+	shell_error(shell, "IP Address %s converted %d", ip_addr, sin.sin_addr.s_addr);
+#endif
 
 	if (zsock_connect(sd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
 		shell_error(shell, "zsock_connect errno");
@@ -146,6 +217,8 @@ int tmo_update_time(const struct shell *shell,char *serverIp)
 		if (stat == -1) {
 			if ((total == 0) || (errno != EAGAIN)) {
 				shell_error(shell, "recv failed, errno = %d", errno);
+				zsock_close(sd);
+				return -1;
 			}
 			break;
 		}
@@ -161,7 +234,9 @@ int tmo_update_time(const struct shell *shell,char *serverIp)
 	packet.txTm_f = ntohl( packet.txTm_f ); // Time-stamp fraction of a second.
 
 	time_t txTm = ( time_t ) ( packet.txTm_s - NTP_TIMESTAMP_DELTA );
+#ifdef DEBUG
 	shell_print(shell, "epoch %lld", txTm);
+#endif
 	time_date_set(shell,txTm);
 	zsock_close(sd);
 	return 0;
