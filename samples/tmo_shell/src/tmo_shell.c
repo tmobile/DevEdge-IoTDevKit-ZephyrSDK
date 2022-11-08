@@ -1508,7 +1508,7 @@ int cmd_sntp(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2) {
 		shell_error(shell, "Missing required arguments");
-		shell_print(shell, "Usage: tmo sntp <server> (40.119.6.228)");
+		shell_print(shell, "Usage: tmo sntp <ip or domain> <server>");
 		return -EINVAL;
 	}	  
 
