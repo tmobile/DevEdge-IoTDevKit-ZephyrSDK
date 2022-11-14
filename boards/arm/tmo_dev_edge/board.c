@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <init.h>
+#include <zephyr/init.h>
 #include "board.h"
-#include <drivers/gpio.h>
-#include <sys/printk.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/kernel.h>
 
 static void powerup_led_on(struct k_timer *timer_id);
 
@@ -70,7 +71,7 @@ static int tmo_dev_edge(const struct device *dev)
 	return 0;
 }
 
-#include <drivers/pwm.h>
+#include <zephyr/drivers/pwm.h>
 
 static void powerup_led_on(struct k_timer *timer_id)
 {

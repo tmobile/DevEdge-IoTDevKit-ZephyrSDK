@@ -13,13 +13,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <zephyr.h>
-#include <fs/fs.h>
-#include <net/socket.h>
-#include <sys/reboot.h>
+#include <zephyr/kernel.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/sys/reboot.h>
 #include <mbedtls/sha1.h>
-#include <drivers/gpio.h>
-#include <drivers/modem/murata-1sc.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/modem/murata-1sc.h>
 
 #include "tmo_dfu_download.h"
 #include "dfu_murata_1sc.h"

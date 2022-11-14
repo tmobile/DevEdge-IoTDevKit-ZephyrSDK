@@ -7,7 +7,7 @@
 #ifndef TMO_BLE_DEMO_H
 #define TMO_BLE_DEMO_H
 
-#include <shell/shell.h>
+#include <zephyr/shell/shell.h>
 
 typedef struct sensor_value SENSOR_VALUE_STRUCT;
 int read_accelerometer( SENSOR_VALUE_STRUCT* acc_sensor_arr);

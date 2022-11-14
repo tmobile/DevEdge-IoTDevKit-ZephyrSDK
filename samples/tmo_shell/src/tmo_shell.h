@@ -9,7 +9,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <net/net_if.h>
+#include <zephyr/net/net_if.h>
 #include <errno.h>
 
 #define MAX_MODEM_SOCKS	5

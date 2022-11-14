@@ -7,7 +7,7 @@
 #ifndef TMO_LEDS_H
 #define TMO_LEDS_H
 
-#include <drivers/gpio.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/led.h>
 
 #define PWMLEDS		device_get_binding("pwmleds")

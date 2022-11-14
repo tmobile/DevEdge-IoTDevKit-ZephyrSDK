@@ -11,10 +11,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <zephyr.h>
-#include <sys/reboot.h>
-#include <fs/fs.h>
-#include <drivers/gpio.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/reboot.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/drivers/gpio.h>
 #include <rsi_wlan_apis.h>
 #include <rsi_common_apis.h>
 
