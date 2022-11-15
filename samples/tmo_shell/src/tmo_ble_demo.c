@@ -222,7 +222,7 @@ static ssize_t battery_power_source_get(struct bt_conn *conn,
 	uint8_t charging, vbus, battery_attached, fault;
 
 	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (vbus) {
+	if (vbus || !battery_attached) {
 		power_source = ON_CHARGER_POWER;
 	} else {
 		power_source = ON_BATTERY_POWER;
