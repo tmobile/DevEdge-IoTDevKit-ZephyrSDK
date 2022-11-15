@@ -184,14 +184,14 @@ int tmo_dfu_download(enum dfu_tgts dfu_tgt, char *base, char *version, int num_s
 			break;
 
 		case DFU_MODEM:
-			sprintf(dfu_files_modem[0].rfile, "%s.ua",base);
-			sprintf(dfu_files_modem[1].rfile, "%s.sha1",dfu_files_modem[0].rfile);
+			sprintf((char *)dfu_files_modem[0].rfile, "%s.ua",base);
+			sprintf((char *)dfu_files_modem[1].rfile, "%s.sha1",dfu_files_modem[0].rfile);
 			dfu_files = dfu_files_modem;
 			break;
 
 		case DFU_9116W:
-			sprintf(dfu_files_rs9116w[0].rfile, "%s.rps",base);
-			sprintf(dfu_files_rs9116w[1].rfile, "%s.sha1",dfu_files_rs9116w[0].rfile);
+			sprintf((char *)dfu_files_rs9116w[0].rfile, "%s.rps",base);
+			sprintf((char *)dfu_files_rs9116w[1].rfile, "%s.sha1",dfu_files_rs9116w[0].rfile);
 			dfu_files = dfu_files_rs9116w;
 			break;
 
