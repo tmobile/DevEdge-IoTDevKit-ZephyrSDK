@@ -1701,7 +1701,14 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 				"       target: 0 for mcu, 1 for modem, 2 for wifi");
 		return -EINVAL;
 	}
-	return tmo_dfu_download( (int) strtol(argv[1], NULL, 10));
+	int target = (int) strtol(argv[1], NULL, 10);
+
+	if (argv[2] == NULL && target > 0) {
+		shell_error(shell, "There are no updates at this time");
+		return -EINVAL;
+	}
+
+	return tmo_dfu_download( target, argv[2], argv[3], (int)strtol(argv[4], NULL, 10));
 }
 
 int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)

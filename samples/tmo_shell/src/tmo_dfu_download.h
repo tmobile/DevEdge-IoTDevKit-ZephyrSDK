@@ -29,7 +29,7 @@ struct dfu_file_t {
 	char sha1[DFU_SHA1_LEN];
 };
 
-int tmo_dfu_download(enum dfu_tgts dfu_tgt);
+int tmo_dfu_download(enum dfu_tgts dfu_tgt, char *filename, char *version, int num_slots);
 int set_dfu_base_url(char *base_url);
 const char *get_dfu_base_url(void);
 int set_dfu_iface_type(int iface);

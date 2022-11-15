@@ -140,21 +140,58 @@ int dfu_download(const struct dfu_file_t *dfu_file)
 	return totalbytes;
 }
 
-int tmo_dfu_download(enum dfu_tgts dfu_tgt)
+void generate_mcu_filename(struct dfu_file_t *dfu_files_mcu, char *base, char *version, int slots) {
+    for (int i = 0; i < slots; i++) {
+			/* BIN	*/
+			sprintf(dfu_files_mcu[i].desc, "Gecko MCU %d/%d", i+1, slots*2);
+			sprintf(dfu_files_mcu[i].lfile, "/tmo/zephyr.slot%d.bin", i);
+			sprintf(dfu_files_mcu[i].rfile, "%s.slot%d.%s.bin",base, i, version);
+			memset(dfu_files_mcu[i].sha1, 0, DFU_SHA1_LEN);
+
+			/* SHA1 */
+			sprintf(dfu_files_mcu[i+slots].desc, "Gecko MCU %d/%d", i + (1+slots), slots*2);
+			sprintf(dfu_files_mcu[i+slots].lfile, "%s.sha1", dfu_files_mcu[i].lfile);
+			sprintf(dfu_files_mcu[i+slots].rfile, "%s.sha1",dfu_files_mcu[i].rfile);
+			memset(dfu_files_mcu[i+slots].sha1, 0, DFU_SHA1_LEN);
+	}
+}
+
+int tmo_dfu_download(enum dfu_tgts dfu_tgt, char *base, char *version, int num_slots)
 {
 	mbedtls_sha1_init(&sha1_ctx);
 	const struct dfu_file_t *dfu_files = NULL;
+	struct dfu_file_t dfu_files_mcu_gen[5];
+
+	memset(dfu_files_mcu_gen,0,sizeof(struct dfu_file_t) * 5);
 
 	switch (dfu_tgt) {
 		case DFU_GECKO:
-			dfu_files = dfu_files_mcu;
+			if (base == NULL) 
+				dfu_files = dfu_files_mcu;
+			else {
+				if (version == NULL) {
+					printf("Missing version number\n");
+					return -1;
+				}
+
+				if (!num_slots) {
+					printf("Slot should be greater than zero\n");
+					return -1;
+				}
+				generate_mcu_filename(dfu_files_mcu_gen,base,version,num_slots);
+				dfu_files = dfu_files_mcu_gen;
+			}
 			break;
 
 		case DFU_MODEM:
+			sprintf(dfu_files_modem[0].rfile, "%s.ua",base);
+			sprintf(dfu_files_modem[1].rfile, "%s.sha1",dfu_files_modem[0].rfile);
 			dfu_files = dfu_files_modem;
 			break;
 
 		case DFU_9116W:
+			sprintf(dfu_files_rs9116w[0].rfile, "%s.rps",base);
+			sprintf(dfu_files_rs9116w[1].rfile, "%s.sha1",dfu_files_rs9116w[0].rfile);
 			dfu_files = dfu_files_rs9116w;
 			break;
 
