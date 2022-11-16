@@ -7,9 +7,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <drivers/i2c.h>
-#include <drivers/gpio.h>
-#include <sys/byteorder.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/byteorder.h>
 #include "tmo_bq24250.h"
 
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(bq24250), okay)

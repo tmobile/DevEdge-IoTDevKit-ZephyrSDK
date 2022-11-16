@@ -5,15 +5,15 @@
  */
 
 #include <stdio.h>
-#include <fs/fs.h>
-#include <net/http_client.h>
-#include <net/net_ip.h>
-#include <net/socket.h>
-#include <net/tls_credentials.h>
-#include <sys/base64.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/net/http/client.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/net/tls_credentials.h>
+#include <zephyr/sys/base64.h>
 #include <mbedtls/x509.h>
 #include <mbedtls/x509_crt.h>
-#include <shell/shell.h>
+#include <zephyr/shell/shell.h>
 
 #include "tmo_shell.h"
 #include "ca_certificate.h"

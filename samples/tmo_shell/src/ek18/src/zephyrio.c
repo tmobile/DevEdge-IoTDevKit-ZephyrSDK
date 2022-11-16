@@ -7,13 +7,13 @@
 #include "cdefs.h"
 #include "debug.h"
 #include "kermit.h"
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
 #if CONFIG_SHELL_BACKEND_RTT
 #include <zephyr/shell/shell_rtt.h>
 #endif
 #include <SEGGER_RTT.h>
-#include <fs/fs.h>
+#include <zephyr/fs/fs.h>
 #include <zephyr/device.h>
 
 #define EOF -1

@@ -5,9 +5,8 @@
  */
 
 #include <stdio.h>
-#include <zephyr.h>
-#include <kernel.h>
-#include <drivers/pwm.h>
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/pwm.h>
 
 #include "tmo_shell.h"
 #include "tmo_buzzer.h"
