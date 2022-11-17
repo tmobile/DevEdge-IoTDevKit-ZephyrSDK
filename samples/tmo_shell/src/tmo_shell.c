@@ -1697,8 +1697,9 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2) {
 		shell_error(shell, "Missing required arguments");
-		shell_print(shell, "Usage: tmo dfu download <target>\n"
-				"       target: 0 for mcu, 1 for modem, 2 for wifi");
+		shell_print(shell, "Usage: tmo dfu download <target> [filename]\n"
+				"       target: 0 for mcu, 1 for modem, 2 for wifi\n"
+				"       filename(optional): base filename e.g tmo_shell.tmo_dev_edge");
 		return -EINVAL;
 	}
 	int target = (int) strtol(argv[1], NULL, 10);
@@ -1708,7 +1709,7 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	return tmo_dfu_download( target, argv[2], argv[3], (int)strtol(argv[4], NULL, 10));
+	return tmo_dfu_download(shell, target, argv[2], argv[3]);
 }
 
 int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
@@ -1767,17 +1768,23 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 {
-	if (argc < 3){
-		shell_error(shell, "Missing required arguments");
-		shell_print(shell, "Usage: tmo dfu update <target> <modem delta file>\n"
-				"       target          : 0 for mcu, 1 for modem, 2 for wifi/ble\n"
-				"       modem delta file: SAMPLE: 0 for update3.2.20351_20161_dis.ua, 1 for update3.2.20161_20351_dis.ua\n"
-				"                         GOLDEN: 2 for update20351_20161_801_test.ua, 3 for update20161_20351_801_test.ua\n");
-		return -EINVAL;
-	}
-
 	int firmware_target = (int) strtol(argv[1], NULL, 10);
 	int delta_firmware_target = (int) strtol(argv[2], NULL, 10);
+
+	if (((argc < 2) && (firmware_target != DFU_GECKO)) || 
+			((argc != 3) && (firmware_target == DFU_GECKO))) {
+		shell_error(shell, "Missing required arguments");
+		shell_print(shell, "Usage: tmo dfu update <target>\n"
+				"       target : 0 for mcu, 1 for modem, 2 for wifi/ble\n"
+				"       mcu_slot(optional): slot to update. Applicable only to mcu target\n"
+				"       Usage (mcu): \n"
+				"                   tmo dfu update 0 <0 or 1>\n"
+				"       Usage (modem): \n"
+				"                   tmo dfu update 1\n"
+				"       Usage (wifi/ble): \n"
+				"                   tmo dfu update 2\n");
+		return -EINVAL;
+	}
 
 	switch (firmware_target)
 	{
