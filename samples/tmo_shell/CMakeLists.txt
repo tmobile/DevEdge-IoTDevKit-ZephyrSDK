@@ -124,6 +124,10 @@ else()
 	add_compile_definitions(VERSION_TMO_RTOS_TAG="${TMO_RTOS_TAG}")
 endif()
 
+if(DEFINED ENV{SLOT})
+	add_compile_definitions(BOOT_SLOT="$ENV{SLOT}")
+endif()
+
 # tmo-sdk: current version tag in tmo-sdk
 if(DEFINED ENV{TMO_SDK_TAG})
 	add_compile_definitions(VERSION_TMO_SDK_TAG="$ENV{TMO_SDK_TAG}")
