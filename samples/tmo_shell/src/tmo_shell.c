@@ -1778,9 +1778,9 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 				"       target : 0 for mcu, 1 for modem, 2 for wifi/ble\n"
 				"       mcu_slot(optional): slot to update. Applicable only to mcu target\n"
 				"       Usage (mcu): \n"
-				"                   tmo dfu update 0 <0 or 1>\n"
+				"                   tmo dfu update 0 [slot]\n"
 				"       Usage (modem): \n"
-				"                   tmo dfu update 1\n"
+				"                   tmo dfu update 1 [modem_delta_file]\n"
 				"       Usage (wifi/ble): \n"
 				"                   tmo dfu update 2\n");
 		return -EINVAL;
