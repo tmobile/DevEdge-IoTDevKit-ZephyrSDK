@@ -2334,4 +2334,8 @@ void tmo_shell_main (void)
 #ifdef CONFIG_WIFI
 	tmo_wifi_connect();
 #endif
+
+#ifdef BOOT_SLOT
+	printf("BOOT_SLOT: %s\n", BOOT_SLOT);
+#endif
 }
