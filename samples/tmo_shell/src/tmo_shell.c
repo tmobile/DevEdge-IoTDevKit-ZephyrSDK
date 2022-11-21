@@ -1790,6 +1790,14 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 	{
 		case DFU_GECKO:
 			{
+#ifdef BOOT_SLOT
+				if ((strcmp(BOOT_SLOT, "0") || strcmp(BOOT_SLOT, "1"))) {
+					if (atoi(BOOT_SLOT) == delta_firmware_target) {
+						shell_error(shell,"Can't program slot you are running from");
+						return -EINVAL;
+					}
+				}
+#endif
 				shell_print(shell,"\nStarting the FW update for SiLabs Pearl Gecko");
 				int status;
 				status = dfu_mcu_firmware_upgrade(delta_firmware_target);
