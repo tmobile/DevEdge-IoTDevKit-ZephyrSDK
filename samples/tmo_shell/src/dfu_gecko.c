@@ -8,6 +8,9 @@
  * @brief Device Firmware Update (DFU) support for SiLabs Pearl Gecko
  */
 
+/* Only run if syncup wants DFU or if application is not in syncup at all. */
+#if !defined(CONFIG_SYNCUP_SDK) || defined(CONFIG_SYNCUP_DFU)
+
 #include <stdio.h>
 #include <string.h>
 #include <zephyr/kernel.h>
@@ -19,297 +22,253 @@
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
 #include <mbedtls/sha1.h>
+#include <zephyr/sys/byteorder.h>
 
 #include "tmo_dfu_download.h"
-
-// SHAs are set to 0 since they are unknown before a build
-const struct dfu_file_t dfu_files_mcu[] = {
-	{
-		"Gecko MCU 1/4",
-		"/tmo/zephyr.slot0.bin",
-		"tmo_shell.tmo_dev_edge.slot0.bin",
-		{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
-	},
-	{
-		"Gecko MCU 2/4",
-		"/tmo/zephyr.slot1.bin",
-		"tmo_shell.tmo_dev_edge.slot1.bin",
-		{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
-	},
-	{
-		"Gecko MCU 3/4",
-		"/tmo/zephyr.slot0.bin.sha1",
-		"tmo_shell.tmo_dev_edge.slot0.bin.sha1",
-		{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
-	},
-	{
-		"Gecko MCU 4/4",
-		"/tmo/zephyr.slot1.bin.sha1",
-		"tmo_shell.tmo_dev_edge.slot1.bin.sha1",
-		{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
-	},
-
-	{"","","",""}
-};
-
-#define DFU_XFER_SIZE_2K    2048UL
-#define DFU_CHUNK_SIZE      2048UL
-#define DFU_IN_BETWEEN_FILE 0UL
-#define DFU_START_OF_FILE   1UL
-#define DFU_END_OF_FILE     2UL
-#define DFU_FW_VER_SIZE     20UL
-
-// slot partition addresses
-#define GECKO_IMAGE_SLOT_0_SECTOR 0x10000
-#define GECKO_IMAGE_SLOT_1_SECTOR 0x80000
-
-typedef enum gecko_app_state_e {
-	GECKO_INITIAL_STATE = 0,
-	GECKO_INIT_STATE,
-	GECKO_FW_UPGRADE,
-	GECKO_FW_UPGRADE_DONE
-} gecko_app_state_t;
-
-// gecko FW update application control block
-typedef struct gecko_app_cb_s {
-	// gecko FW update application state
-	gecko_app_state_t state;
-} gecko_app_cb_t;
-
-// application control block
-gecko_app_cb_t gecko_app_cb;
-
-// FW send variable , buffer
-static uint32_t chunk_cnt = 0u, chunk_check = 0u, offset = 0u, fw_image_size = 0u;
-static int32_t status = 0;
-static uint8_t image_buffer[DFU_CHUNK_SIZE] = { 0 };
-static uint8_t check_buf[DFU_CHUNK_SIZE + 1];
-static int requested_slot_to_upgrade = -1;
-
-#define GECKO_INCRE_PAGE 0
-#define GECKO_INIT_PAGE 1
-#define GECKO_FLASH_SECTOR 0x00000
-extern int read_image_from_flash(uint8_t *flash_read_buffer, int readBytes, uint32_t flashStartSector, int ImageFileNum);
-
-static struct fs_file_t geckofile = {0};
-static char * gecko_slot0_name = "/tmo/zephyr.slot0.bin";
-static char * gecko_slot1_name = "/tmo/zephyr.slot1.bin";
-static int readbytes = 0;
-static int totalreadbytes = 0;
-static int totalwritebytes = 0;
-
-static struct fs_file_t gecko_sha1_file = {0};
-static char * gecko_slot0_sha1_name = "/tmo/zephyr.slot0.bin.sha1";
-static char * gecko_slot1_sha1_name = "/tmo/zephyr.slot1.bin.sha1";
-static mbedtls_sha1_context gecko_sha1_ctx;
-static unsigned char gecko_sha1_output[DFU_SHA1_LEN];
-static unsigned char gecko_expected_sha1[DFU_SHA1_LEN*2];
-static unsigned char gecko_expected_sha1_final[DFU_SHA1_LEN];
+#include "dfu_gecko.h"
 
 extern const struct device *gecko_flash_dev;
 
-static uint32_t crc32;
-extern uint32_t crc32_ieee_update(uint32_t crc, const uint8_t * data, size_t len );
+/* Syncup defines some file system operations, copy them */
+#ifndef CONFIG_SYNCUP_SDK
+static uint8_t mxfer_buf[CONFIG_SYNCUP_FS_READ_BUF_SIZE];
 
-#define IMAGE_MAGIC                 0x96f3b83d
-#define IMAGE_MAGIC_V1              0x96f3b83c
-#define IMAGE_MAGIC_NONE            0xffffffff
-#define IMAGE_TLV_INFO_MAGIC        0x6907
-#define IMAGE_TLV_PROT_INFO_MAGIC   0x6908
-
-#define IMAGE_HEADER_SIZE           32
-
-struct image_version {
-	uint8_t iv_major;
-	uint8_t iv_minor;
-	uint16_t iv_revision;
-	uint32_t iv_build_num;
-};
-
-/** Image header.  All fields are in little endian byte order. */
-struct image_header {
-	uint32_t ih_magic;
-	uint32_t ih_load_addr;
-	uint16_t ih_hdr_size;           /* Size of image header (bytes). */
-	uint16_t ih_protect_tlv_size;   /* Size of protected TLV area (bytes). */
-	uint32_t ih_img_size;           /* Does not include header. */
-	uint32_t ih_flags;              /* IMAGE_F_[...]. */
-	struct image_version ih_ver;
-	uint32_t _pad1;
-};
-
-static int compare_sha1(int slot_to_upgrade)
+int syncup_fs_stat(const char *file)
 {
-	printf("\n\tSHA1 compare for file zephyr.slot%d.bin\n", slot_to_upgrade);
+	struct fs_dirent entry;
+	int err;
 
-	/*
-	for (int i = 0; i < DFU_SHA1_LEN; i++) {
-		printf("%02x ", gecko_sha1_output[i]);
-	}
-	printf("\n");
-	*/
+	err = fs_stat(file, &entry);
+	if (err) {
+		LOG_ERROR("Could not stat %s, err %d" ENDL, file, err);
 
-	printf("\tExpected SHA1:\n\t\t");
-	for (int i = 0; i < DFU_SHA1_LEN; i++) {
-		printf("%02x ", gecko_expected_sha1_final[i]);
+		return -1;
 	}
 
-	int sha1_fails = 0;
-	for (int i = 0; i < DFU_SHA1_LEN; i++) {
-		if (gecko_sha1_output[i] != gecko_expected_sha1_final[i]) {
-			sha1_fails++;
+	return (entry.type == FS_DIR_ENTRY_FILE) ? entry.size : 0;
+}
+
+int syncup_fs_get_file_sha1(const char *file, uint8_t *out, uint8_t out_len)
+{
+	mbedtls_sha1_context gecko_sha1_ctx = {0};
+	int ret;
+
+	if (out_len < 20) {
+		ret = -1;
+		goto end_nofile;
+	}
+
+	/* Init the sha1 checksum */
+	mbedtls_sha1_init(&gecko_sha1_ctx);
+	memset(out, 0, 20);
+	mbedtls_sha1_starts(&gecko_sha1_ctx);
+
+	struct fs_file_t zfp_src;
+	fs_file_t_init(&zfp_src);
+	ret = fs_open(&zfp_src, file, FS_O_READ);
+	if (ret) {
+		LOG_ERROR("cannot open %s" ENDL, file);
+		goto end_nofile;
+	}
+
+	while (1) {
+		ret = fs_read(&zfp_src, mxfer_buf, CONFIG_SYNCUP_FS_READ_BUF_SIZE);
+		if (ret < 0) {
+			LOG_ERROR("Error reading from %s" ENDL, file);
+			goto end;
+		} else if (ret) {
+			mbedtls_sha1_update(&gecko_sha1_ctx, (unsigned char *)mxfer_buf, ret);
+		} else {
+			mbedtls_sha1_finish(&gecko_sha1_ctx, out);
 			break;
 		}
 	}
-
-	if (sha1_fails) {
-		printf("\n\nSHA1 error: The computed file SHA1 doesn't match expected\n");
-		return -1;
-	}
-	else
-	{
-		printf("\n\tSHA1 matches");
-		return 0;
-	}
+	ret = 0;
+end:
+	fs_close(&zfp_src);
+end_nofile:
+	return ret;
 }
+#else
+/* Syncup internal logging */
+#include "logging.h"
+LOGGER_MODULE(SYNCUP_DFU_API_GECKO);
+#endif
 
-static int slot_version_cmp(struct image_version *ver1,
-		struct image_version *ver2)
+/* Needed by tmo_dfu_download.c */
+const struct dfu_file_t dfu_files_mcu[] = {
+	{"Gecko MCU 1/4",
+	 "/tmo/zephyr.slot0.bin",
+	 "tmo_shell.tmo_dev_edge.slot0.bin",
+	 {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+	{"Gecko MCU 2/4",
+	 "/tmo/zephyr.slot1.bin",
+	 "tmo_shell.tmo_dev_edge.slot1.bin",
+	 {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+	{"Gecko MCU 3/4",
+	 "/tmo/zephyr.slot0.bin.sha1",
+	 "tmo_shell.tmo_dev_edge.slot0.bin.sha1",
+	 {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+	{"Gecko MCU 4/4",
+	 "/tmo/zephyr.slot1.bin.sha1",
+	 "tmo_shell.tmo_dev_edge.slot1.bin.sha1",
+	 {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+
+	{"", "", "", ""}};
+
+static char *slot_file_name[2][2] = {{CONFIG_SYNCUP_DFU_SLOT0_FILE, CONFIG_SYNCUP_DFU_SLOT0_SHA1},
+				     {CONFIG_SYNCUP_DFU_SLOT1_FILE, CONFIG_SYNCUP_DFU_SLOT1_SHA1}};
+
+static uint8_t image_buffer[CONFIG_SYNCUP_DFU_CHUNK_SIZE] = {0};
+static uint8_t check_buf[CONFIG_SYNCUP_DFU_CHUNK_SIZE + 1];
+static unsigned char sha1_output[SHA1_LEN];
+
+/**
+ * @brief Compare 2 slot versions from header info
+ *
+ * @param slot0_ver The first version to compare
+ * @param slot1_ver The second version to compare
+ * @return int 0 if slot0_ver is newer or versions are equal, 1 if slot1_ver is newer.
+ */
+static int slot_version_cmp(struct image_version *slot0_ver, struct image_version *slot1_ver)
 {
-	printf("slot image header version compare");
+	/* Compare major version numebrs */
+	if (slot0_ver->iv_major > slot1_ver->iv_major) {
+		return 0;
+	}
 
-	if (ver1->iv_major > ver2->iv_major) {
-		printf ("slot image header Major version compare 1. %u vs %u\n", ver1->iv_major, ver2->iv_major);
-		return 0;
-	}
-	if (ver1->iv_major < ver2->iv_major) {
-		printf ("slot image header Major version compare 2. %u vs %u\n", ver1->iv_major, ver2->iv_major);
-		return 1;
-	}
-	/* The major version numbers are equal, continue comparison. */
-	if (ver1->iv_minor > ver2->iv_minor) {
-		printf ("slot image header Minor version compare 3. %u vs %u\n", ver1->iv_minor, ver2->iv_minor);
-		return 0;
-	}
-	if (ver1->iv_minor < ver2->iv_minor) {
-		printf("slot image header Minor version compare 4. %u vs %u\n", ver1->iv_minor, ver2->iv_minor);
-		return 1;
-	}
-	/* The minor version numbers are equal, continue comparison. */
-	if (ver1->iv_revision > ver2->iv_revision) {
-		printf("slot image header revision version compare 5. %u vs %u\n", ver1->iv_revision, ver2->iv_revision );
-		return 0;
-	}
-	if (ver1->iv_revision < ver2->iv_revision) {
-		printf("slot image header revision version compare 6. %u vs %u\n", ver1->iv_revision, ver2->iv_revision );
+	if (slot0_ver->iv_major < slot1_ver->iv_major) {
 		return 1;
 	}
 
-	printf("Error: slot image header version's are both equal\n");
-	return -1;
-}
-
-int get_gecko_fw_version (void)
-{
-	int slot0_has_image = 0; 
-	int slot1_has_image = 0;
-	int active_slot = -1;
-	uint32_t page_addr_slot_0 = GECKO_IMAGE_SLOT_0_SECTOR;
-	uint32_t page_addr_slot_1 = GECKO_IMAGE_SLOT_1_SECTOR;
-	uint8_t read_buf[IMAGE_HEADER_SIZE];
-	struct image_header slot0_hdr;
-	struct image_header slot1_hdr;
-
-	flash_read(gecko_flash_dev, page_addr_slot_0, read_buf, IMAGE_HEADER_SIZE);
-
-	memcpy(&slot0_hdr, &read_buf, IMAGE_HEADER_SIZE);
-
-	flash_read(gecko_flash_dev, page_addr_slot_1, read_buf, IMAGE_HEADER_SIZE);
-
-	memcpy(&slot1_hdr, &read_buf, IMAGE_HEADER_SIZE);
-
-	if (slot0_hdr.ih_magic == IMAGE_MAGIC) {
-		printf("Pearl Gecko Slot 0 FW Version = %u.%u.%u+%u\n", 
-				slot0_hdr.ih_ver.iv_major,
-				slot0_hdr.ih_ver.iv_minor,
-				slot0_hdr.ih_ver.iv_revision,
-				slot0_hdr.ih_ver.iv_build_num);
-		slot0_has_image = 1;
-		active_slot = 0;
-	}
-	else {
-		printf("No bootable image/version found for Pearl Gecko slot 0\n");
+	/* The major version numbers are equal, compare minor */
+	if (slot0_ver->iv_minor > slot1_ver->iv_minor) {
+		return 0;
 	}
 
-	if (slot1_hdr.ih_magic == IMAGE_MAGIC) {
-		printf("Pearl Gecko Slot 1 FW Version = %u.%u.%u+%u\n",
-				slot1_hdr.ih_ver.iv_major,
-				slot1_hdr.ih_ver.iv_minor,
-				slot1_hdr.ih_ver.iv_revision,
-				slot1_hdr.ih_ver.iv_build_num);
-		slot1_has_image = 1;
-		active_slot = 1;
-	}
-	else {
-		printf("No bootable image/version found for Pearl Gecko slot 1\n");
+	if (slot0_ver->iv_minor < slot1_ver->iv_minor) {
+		return 1;
 	}
 
-	if (slot0_has_image && slot1_has_image) {
-		printf("Pearl Gecko slot 0 and slot 1 contain a bootable active image\n");
-		active_slot = slot_version_cmp(&slot0_hdr.ih_ver, &slot1_hdr.ih_ver);
-		if (active_slot < 0) {
-			return -1;
-		}
-		else {
-			printf("Pearl Gecko slot %d is the current active image\n", active_slot);
-		}
-	}
-	else if (slot0_has_image) {
-		printf("Only Pearl Gecko slot 0 contains a bootable active image\n");
-	}
-	else if (slot1_has_image) {
-		printf("Only Pearl Gecko slot 1 contains a bootable active image\n");
-	}
-	else {
-		printf("Pearl Gecko contains no bootable images\n");
-		return -1;
+	/* The minor version numbers are equal, compare revision */
+	if (slot0_ver->iv_revision > slot1_ver->iv_revision) {
+		return 0;
 	}
 
+	if (slot0_ver->iv_revision < slot1_ver->iv_revision) {
+		return 1;
+	}
+
+	/* The two are equal */
 	return 0;
 }
 
-// This function gets the size of the Gecko zephyr firmware
-static uint32_t get_gecko_fw_size(void)
-{
-	int notdone = 1;
-	totalreadbytes = 0;
+/* Convert the desired type to system endianness and icnrement the buffer. This is just a wrapper to
+ * avoid writing the following a ton of times: sys_le32_to_cpu(*((uint32_t*)var));
+ * var=((uint8_t*)var)+sizeof(uint32_t);
+ */
+#define POP(var, sz)                                                                               \
+	sys_le##sz##_to_cpu(*((uint##sz##_t *)var));                                               \
+	var = ((uint8_t *)var) + sizeof(uint##sz##_t);
 
-	while (notdone)
-	{
-		readbytes = fs_read(&geckofile, image_buffer, DFU_XFER_SIZE_2K);
-		if (readbytes < 0) {
-			printf("Could not read file /tmo/zephyr.bin\n");
+/**
+ * @brief Deserialize the magic header once read from flash
+ *
+ * @param dst The dest structure to write into
+ * @param read_buf The buffer read from flash
+ */
+static void deserialize_magic_hdr(struct image_header *dst, uint8_t *read_buf)
+{
+	if (!dst || !read_buf) {
+		return;
+	}
+
+	dst->ih_magic = POP(read_buf, 32);
+	dst->ih_load_addr = POP(read_buf, 32);
+	dst->ih_hdr_size = POP(read_buf, 16);
+	dst->ih_protect_tlv_size = POP(read_buf, 16);
+	dst->ih_img_size = POP(read_buf, 32);
+	dst->ih_flags = POP(read_buf, 32);
+
+	dst->ih_ver.iv_major = read_buf[0];
+	read_buf++;
+	dst->ih_ver.iv_minor = read_buf[0];
+	read_buf++;
+	dst->ih_ver.iv_revision = POP(read_buf, 16);
+	dst->ih_ver.iv_build_num = POP(read_buf, 32);
+}
+
+#undef POP
+
+/**
+ * @brief Get the oldest slot number, invalid slots are always considered the oldest, choses 0 if a
+ * tie
+ *
+ * @return int 0 or 1 if a determination could be made, -1 otherwise
+ */
+int get_oldest_slot()
+{
+	struct image_header slot0_hdr;
+	struct image_header slot1_hdr;
+	uint8_t read_buf[CONFIG_SYNCUP_DFU_IMAGE_HDR_LEN];
+	bool slot0_has_image = false;
+	bool slot1_has_image = false;
+	int oldest_slot = 0;
+
+	flash_read(gecko_flash_dev, CONFIG_SYNCUP_DFU_SLOT0_FLASH_ADDR, read_buf,
+		   CONFIG_SYNCUP_DFU_IMAGE_HDR_LEN);
+	deserialize_magic_hdr(&slot0_hdr, read_buf);
+
+	flash_read(gecko_flash_dev, CONFIG_SYNCUP_DFU_SLOT1_FLASH_ADDR, read_buf,
+		   CONFIG_SYNCUP_DFU_IMAGE_HDR_LEN);
+	deserialize_magic_hdr(&slot1_hdr, read_buf);
+
+	if (slot0_hdr.ih_magic == CONFIG_SYNCUP_DFU_IMAGE_MAGIC) {
+		LOG_DEBUG("%s Slot 0 FW Version = %u.%u.%u+%u" ENDL, CONFIG_SYNCUP_MCU_NAME,
+			  slot0_hdr.ih_ver.iv_major, slot0_hdr.ih_ver.iv_minor,
+			  slot0_hdr.ih_ver.iv_revision, slot0_hdr.ih_ver.iv_build_num);
+		slot0_has_image = true;
+		oldest_slot = 1;
+	} else {
+		LOG_DEBUG("No bootable image/version found for %s slot 0\n",
+			  CONFIG_SYNCUP_MCU_NAME);
+	}
+
+	if (slot1_hdr.ih_magic == CONFIG_SYNCUP_DFU_IMAGE_MAGIC) {
+		LOG_DEBUG("%s Slot 1 FW Version = %u.%u.%u+%u" ENDL, CONFIG_SYNCUP_MCU_NAME,
+			  slot1_hdr.ih_ver.iv_major, slot1_hdr.ih_ver.iv_minor,
+			  slot1_hdr.ih_ver.iv_revision, slot1_hdr.ih_ver.iv_build_num);
+		slot1_has_image = true;
+		oldest_slot = 0;
+	} else {
+		LOG_DEBUG("No bootable image/version found for %s slot 1" ENDL,
+			  CONFIG_SYNCUP_MCU_NAME);
+	}
+
+	if (slot0_has_image && slot1_has_image) {
+		LOG_DEBUG("%s slot 0 and slot 1 contain a bootable active image" ENDL,
+			  CONFIG_SYNCUP_MCU_NAME);
+		oldest_slot = slot_version_cmp(&slot0_hdr.ih_ver, &slot1_hdr.ih_ver);
+		if (oldest_slot < 0) {
 			return -1;
 		}
-
-		totalreadbytes += readbytes;
-		/* Compute the SHA1 for this image while we get the size */
-		mbedtls_sha1_update(&gecko_sha1_ctx, (unsigned char *)image_buffer, readbytes);
-
-		if (readbytes == 0) {
-			notdone = 0;
-		}
+		/* The given function finds the *newest* version, flip that */
+		oldest_slot = (oldest_slot == 1) ? 0 : 1;
+	} else if (!slot0_has_image && !slot1_has_image) {
+		/* This should never happen and usually means no bootloader or an invalid image is
+		 * running. */
+		LOG_ERROR("No valid %s slots found, defaulting to slot 0 (S0 magic: %zu, S1 magic: "
+			  "%zu)" ENDL,
+			  CONFIG_SYNCUP_MCU_NAME, slot0_hdr.ih_magic, slot1_hdr.ih_magic);
+		/* TODO Return whichever slot is not being used. */
+		oldest_slot = 0;
 	}
 
-	mbedtls_sha1_finish(&gecko_sha1_ctx, gecko_sha1_output);
-	printf("GECKO zephyr image size = %d\n", (uint32_t)totalreadbytes);
-
-	printf("\tComputed File SHA1:\n\t\t");
-	for (int i = 0; i < DFU_SHA1_LEN; i++) {
-		printf("%02x ", gecko_sha1_output[i]);
-	}
-
-	return totalreadbytes;
+	return oldest_slot;
 }
 
 /* Convert SHA1 ASCII hex to binary */
@@ -317,8 +276,9 @@ static void sha_hex_to_bin(char *sha_hex_in, char *sha_bin_out, int len)
 {
 	size_t i;
 	char sha_ascii;
-	unsigned char tempByte ;
-	for (i = 0; i < len ; i++) {
+	unsigned char tempByte;
+
+	for (i = 0; i < len; i++) {
 		sha_ascii = *sha_hex_in;
 		if (sha_ascii >= 97) {
 			tempByte = sha_ascii - 97 + 10;
@@ -327,256 +287,248 @@ static void sha_hex_to_bin(char *sha_hex_in, char *sha_bin_out, int len)
 		} else {
 			tempByte = sha_ascii - 48;
 		}
+
 		/* In this ascii to binary encode, loop implementation
 		 * the even SHA1 ascii characters are processed in the first pass,
 		 * and the odd SHA1 characters are processed in the second pass
 		 * of the current output byte
 		 */
-		if (i%2 == 0) {
-			sha_bin_out[i/2] = tempByte << 4;
+		if (i % 2 == 0) {
+			sha_bin_out[i / 2] = tempByte << 4;
 		} else {
-			sha_bin_out[i/2] |= tempByte;
+			sha_bin_out[i / 2] |= tempByte;
 		}
 		sha_hex_in++;
 	}
 }
 
 // This function gets the sha1 of the Gecko zephyr firmware
-static int get_gecko_sha1(void)
+/**
+ * @brief Check a sha1 files contents against a SHA1 byte stream
+ *
+ * @param gecko_sha1_file The file that contains a sha1 sum (as ASCII text)
+ * @param gecko_sha1_output The buffer to compare against
+ * @return true If the hashes match
+ * @return false If the hashes do not match or on error
+ */
+static bool check_fw_sha1(struct fs_file_t *gecko_sha1_file, uint8_t *gecko_sha1_output)
 {
-	readbytes = fs_read(&gecko_sha1_file, gecko_expected_sha1, DFU_SHA1_LEN*2);
-	if ((readbytes < 0) || (readbytes != DFU_SHA1_LEN*2)) {
-		printf("Could not read file /tmo/zephyr.bin.sha1\n");
-		return -1;
+	bool sha1_fail = false;
+	uint8_t gecko_expected_sha1[SHA1_LEN * 2];
+	uint8_t gecko_expected_sha1_final[SHA1_LEN];
+	int readbytes;
+
+	readbytes = fs_read(gecko_sha1_file, gecko_expected_sha1, SHA1_LEN * 2);
+	if ((readbytes < 0) || (readbytes != SHA1_LEN * 2)) {
+		LOG_ERROR("Could not read sha1 file" ENDL);
+
+		return false;
 	}
 
-	sha_hex_to_bin(gecko_expected_sha1, gecko_expected_sha1_final, DFU_SHA1_LEN*2);
+	sha_hex_to_bin(gecko_expected_sha1, gecko_expected_sha1_final, SHA1_LEN * 2);
 
-	return 0;
+	for (int i = 0; i < SHA1_LEN; i++) {
+		if (gecko_sha1_output[i] != gecko_expected_sha1_final[i]) {
+			sha1_fail = true;
+			break;
+		}
+	}
+
+	return !sha1_fail;
 }
 
-static int write_image_chunk_to_flash(int imageBytes, uint8_t* writedata, uint32_t startSector, int pageReset)
+/**
+ * @brief Writes an image chunk to flash, keeping track of prior writes and writing to the next
+ * unwritten address
+ *
+ * @param num_bytes How many bytes to write
+ * @param buf The data buffer to write
+ * @param slot_sector The starting sector
+ * @param reset True to reset the write counter and exist (no write will be performed)
+ * @return int Bytes written on success, -err on failure
+ */
+static int write_image_chunk_to_flash(int num_bytes, uint8_t *buf, uint32_t slot_sector, bool reset)
 {
-	int ret = 0;
 	static uint32_t page = 0;
 
-	if (pageReset) {
+	if (reset) {
 		page = 0;
+
 		return 0;
 	}
 
-	uint32_t page_addr = startSector + (page * DFU_XFER_SIZE_2K);
+	uint32_t page_addr = slot_sector + (page * CONFIG_SYNCUP_DFU_CHUNK_SIZE);
 
 	page++;
 
-	// printf("\n1. readbytes %d page_addr %x\n", imageBytes, page_addr);
-	if (flash_erase(gecko_flash_dev, page_addr, DFU_XFER_SIZE_2K) != 0) {
-		printf("\nGecko 2K page erase failed\n");
+	if (flash_erase(gecko_flash_dev, page_addr, CONFIG_SYNCUP_DFU_CHUNK_SIZE) != 0) {
+		LOG_ERROR(ENDL "Gecko 2K page erase failed" ENDL);
 	}
 
 	/* This will also zero pad out the last 2K page write with the image remainder bytes. */
-	if (flash_write(gecko_flash_dev, page_addr, writedata, DFU_XFER_SIZE_2K) != 0) {
-		printf("Gecko flash write internal ERROR!");
+	if (flash_write(gecko_flash_dev, page_addr, buf, CONFIG_SYNCUP_DFU_CHUNK_SIZE) != 0) {
+		LOG_ERROR(ENDL "Gecko flash write internal ERROR!" ENDL);
+
 		return -EIO;
 	}
 
-	flash_read(gecko_flash_dev, page_addr, check_buf, imageBytes);
-	if (memcmp(writedata, check_buf, imageBytes) != 0) {
-		printf("\nGecko flash erase-write-read ERROR!\n");
+	flash_read(gecko_flash_dev, page_addr, check_buf, num_bytes);
+	if (memcmp(buf, check_buf, num_bytes) != 0) {
+		LOG_ERROR(ENDL "Gecko flash erase-write-read ERROR!" ENDL);
+
 		return -EIO;
 	}
 
-	totalwritebytes += imageBytes;
-	// printf("2. write flash addr %x total %d\n", page_addr, totalwritebytes);
-	return ret;
-}
-
-static int file_read_flash(uint32_t offset)
-{
-	readbytes = fs_read(&geckofile, image_buffer, DFU_XFER_SIZE_2K);
-	if (readbytes < 0) {
-		printf("Could not read file /tmo/zephyr.slotx.bin\n");
-		status = -1;
-		return -1;
-	}
-
-	totalreadbytes += readbytes;
-	//printf("\nreadbytes %d totalreadbytes %d\n", readbytes, totalreadbytes);
-
-	if (readbytes > 0) {
-		if (requested_slot_to_upgrade == 0) {
-			write_image_chunk_to_flash(readbytes, image_buffer, GECKO_IMAGE_SLOT_0_SECTOR, GECKO_INCRE_PAGE);
-		}
-		else {
-			write_image_chunk_to_flash(readbytes, image_buffer, GECKO_IMAGE_SLOT_1_SECTOR, GECKO_INCRE_PAGE);
-		}
-
-		crc32 = crc32_ieee_update(crc32, image_buffer, readbytes);
-	}
-
-	status = 0;
 	return 0;
 }
 
-static uint8_t fw_upgrade_done = 0;
-int32_t dfu_gecko_write_image(int slot_to_upgrade)
+/**
+ * @brief Writes a chunk of a file to flash
+ *
+ * @param geckofile A file handler to read from
+ * @param slot The slot to write into in flash
+ * @param len The maximum length of the transfer
+ * @return int number of bytes written on success, -1 on failure. Should only return less than len
+ * on the final call
+ */
+static int file_chunk_to_flash(struct fs_file_t *geckofile, int slot, size_t len)
 {
-	requested_slot_to_upgrade = slot_to_upgrade;
+	int readbytes = fs_read(geckofile, image_buffer, len);
 
-	printf("Checking for presence of correct Gecko slot %d image file\n", slot_to_upgrade);
-	if (slot_to_upgrade == 0) {
-		if (fs_open(&geckofile, gecko_slot0_name, FS_O_READ) != 0) {
-			printf("The Gecko FW file %s is missing\n", "/tmo/zephyr.slot0.bin");
-			return 1;
-		}
-		else {
-			printf("The required Gecko FW file %s is present\n", "/tmo/zephyr.slot0.bin");
-		}
-
-		if (fs_open(&gecko_sha1_file, gecko_slot0_sha1_name, FS_O_READ) != 0) {
-			printf("The SHA1 digest file %s is missing\n", "/tmo/zephyr.slot0.bin.sha1");
-			return 1;
-		}
-		else {
-			printf("The required SHA1 Digest file %s is present\n", "/tmo/zephyr.slot0.bin.sha1");
-		}
+	if (readbytes < 0) {
+		return -1;
 	}
-	else {
-		if (fs_open(&geckofile, gecko_slot1_name, FS_O_READ) != 0) {
-			printf("The file %s is missing\n", "/tmo/zephyr.slot1.bin");
-			return 1;
-		}
-		else {
-			printf("The required Gecko FW file %s is present\n", "/tmo/zephyr.slot1.bin");
-		}
 
-		if (fs_open(&gecko_sha1_file, gecko_slot1_sha1_name, FS_O_READ) != 0) {
-			printf("The Gecko FW file %s is missing\n", "/tmo/zephyr.slot1.bin.sha1");
-			return 1;
-		}
-		else {
-			printf("The required SHA1 Digest file %s is present\n", "/tmo/zephyr.slot1.bin.sha1");
+	if (readbytes > 0) {
+		if (slot == 0) {
+			write_image_chunk_to_flash(readbytes, image_buffer,
+						   CONFIG_SYNCUP_DFU_SLOT0_FLASH_ADDR, false);
+		} else {
+			write_image_chunk_to_flash(readbytes, image_buffer,
+						   CONFIG_SYNCUP_DFU_SLOT1_FLASH_ADDR, false);
 		}
 	}
 
-	/* We do a dummy call here to init (reset) the incrementing page address var */
-	write_image_chunk_to_flash(readbytes, image_buffer, GECKO_FLASH_SECTOR, GECKO_INIT_PAGE);
+	return readbytes;
+}
 
-	readbytes = 0;
-	totalreadbytes = 0;
-	totalwritebytes = 0;
+int dfu_gecko_write_image(int slot_to_upgrade)
+{
+	struct fs_file_t geckofile = {0};
+	struct fs_file_t gecko_sha1_file = {0};
+	int status = 0;
+	int readbytes = 0;
+	int totalreadbytes = 0;
+	uint32_t chunk_cnt = 0, chunk_check = 0, fw_image_size = 0;
 
-	while (!fw_upgrade_done) {
-		switch (gecko_app_cb.state) {
-			case GECKO_INITIAL_STATE:
-				{
-					printf("GECKO FW update started\n");
-					/* update wlan application state */
-					gecko_app_cb.state = GECKO_FW_UPGRADE;
-					mbedtls_sha1_init(&gecko_sha1_ctx);
-					memset(gecko_sha1_output, 0, sizeof(gecko_sha1_output));
-					mbedtls_sha1_starts(&gecko_sha1_ctx);
-				}
-				/* no break */
+	/* Open the firmware and sha1 files */
+	if (fs_open(&geckofile, slot_file_name[slot_to_upgrade][FILE_FW], FS_O_READ) != 0) {
+		LOG_ERROR("The Gecko FW file %s is missing" ENDL,
+			  slot_file_name[slot_to_upgrade][FILE_FW]);
 
-			case GECKO_FW_UPGRADE:
-				{
-					/* Send the first chunk to extract header */
-					fw_image_size = get_gecko_fw_size();
-					if ((fw_image_size == 0) || (fw_image_size < DFU_CHUNK_SIZE)) {
-						printf("\nERROR  - GECKO FW is too small\n");
-						return -1;
-					}
-
-					int sha1_exist = get_gecko_sha1();
-					if (sha1_exist != 0) {
-						printf("\nERROR  - GECKO SHA1 is missing!\n");
-						return -1;
-					}
-
-					int sha1_is_good = compare_sha1(slot_to_upgrade);
-					if (sha1_is_good != 0) {
-						printf("\nERROR  - GECKO SHA1 is miscompares !\n");
-						return -1;
-					}
-
-					/* Calculate the total number of chunks */
-					chunk_check = (fw_image_size / DFU_CHUNK_SIZE);
-					if (fw_image_size % DFU_CHUNK_SIZE) {
-						chunk_check += 1;
-					}
-
-					printf("zephyr.bin image_size = %d num of 2048 chunks = %d\n", fw_image_size, chunk_check);
-					fs_seek(&geckofile, 0, FS_SEEK_SET);
-
-					readbytes = 0;
-					totalreadbytes = 0;
-					totalwritebytes = 0;
-
-					/* Loop until all the chunks are read and written */
-					while (offset <= fw_image_size) {
-						if (chunk_cnt != 0) {
-							if (file_read_flash(offset) != 0) {
-								printf("file system flash read failed\n");
-								return (-1);
-							}
-							//printf("chunk_cnt: %d\n", chunk_cnt);
-						}
-						if (chunk_cnt == 0) {
-							printf("\nGECKO FW update - starts here with - 1st Chunk\n");
-							if (status != 0) {
-								printf("1st Chunk GECKO_ERROR: %d\n", status);
-								return (-1);
-							}
-						} else if (chunk_cnt == (chunk_check -1)) {
-							printf("\nwriting last chunk\n");
-							if (file_read_flash(offset) != 0) {
-								printf("file system flash read failed\n");
-								return (-1);
-							}
-							if (status != 0) {
-								printf("last Chunk GECKO_ERROR: %d\n", status);
-								break;
-							}
-							printf("\r\nGECKO FW update success\n");
-							gecko_app_cb.state = GECKO_FW_UPGRADE_DONE;
-							break;
-						} else   {
-							printk(".");
-							//printf("\nGecko FW update - continues with in-between Chunks\n");
-							if (status != 0) {
-								printf("in-between Chunks GECKO_ERROR: %d\n", status);
-								break;
-							}
-						}
-						offset += readbytes;
-						memset(image_buffer, 0, sizeof(image_buffer));
-						chunk_cnt++;
-					}       /* end While Loop */
-				}               /* End case of  */
-				break;
-
-			case GECKO_FW_UPGRADE_DONE:
-				{
-					fw_upgrade_done = 1;
-					fs_close(&geckofile);
-
-					printf("\tCalculated program CRC32 is %x\n", crc32);
-					printf("\ttotal bytes read       = %d bytes\n", totalreadbytes);
-					printf("GECKO FW update has completed - rebooting now\n");
-					k_sleep(K_SECONDS(3));
-					sys_reboot(SYS_REBOOT_COLD);
-				}
-				break;
-
-			default:
-				printf("\nerror: dfu_gecko_write_image: default case\n");
-				break;
-		} /* end of switch */
-
+		goto end;
 	}
+
+	if (fs_open(&gecko_sha1_file, slot_file_name[slot_to_upgrade][FILE_SHA1], FS_O_READ) != 0) {
+		LOG_ERROR("The SHA1 digest file %s is missing" ENDL,
+			  slot_file_name[slot_to_upgrade][FILE_SHA1]);
+
+		goto end_close_fw;
+	}
+
+	/* Reset the writing process */
+	write_image_chunk_to_flash(0, NULL, 0, true);
+
+	/* STAGE 1: Set up */
+	LOG_INFO("GECKO FW update started" ENDL);
+	memset(sha1_output, 0, sizeof(sha1_output));
+
+	/* STAGE 2: Verify files and write to flash */
+	fw_image_size = syncup_fs_stat(slot_file_name[slot_to_upgrade][FILE_FW]);
+	if ((fw_image_size == 0) || (fw_image_size < CONFIG_SYNCUP_DFU_CHUNK_SIZE)) {
+		LOG_ERROR("ERROR  - GECKO FW is too small" ENDL);
+		status = -1;
+		goto end_closefiles;
+	}
+
+	/* Compute the sha1 hash of the slot file */
+	status = syncup_fs_get_file_sha1(slot_file_name[slot_to_upgrade][FILE_FW], sha1_output,
+					 sizeof(sha1_output));
+	if (status) {
+		LOG_ERROR("Could not get file sha1 for %s, err=%d" ENDL,
+			  slot_file_name[slot_to_upgrade][FILE_FW], status);
+	}
+
+	/* Compare the computed sha1 to the sha1 file*/
+	bool sha1_is_good = check_fw_sha1(&gecko_sha1_file, sha1_output);
+	if (!sha1_is_good) {
+		LOG_ERROR("Failed to match SHA1" ENDL);
+		status = -1;
+		goto end_closefiles;
+	}
+
+	/* Calculate the total number of chunks */
+	chunk_check = (fw_image_size / CONFIG_SYNCUP_DFU_CHUNK_SIZE);
+	if (fw_image_size % CONFIG_SYNCUP_DFU_CHUNK_SIZE) {
+		chunk_check += 1;
+	}
+
+	LOG_INFO("image_size = %d, num of 2048 chunks = %d" ENDL, fw_image_size, chunk_check);
+	/* TODO Implement a read FS API that is useful here and eliminate the need for any file
+	 * pointer ops in this interface */
+	fs_seek(&geckofile, 0, FS_SEEK_SET);
+
+	/* Loop until all the chunks are read and written */
+	for (int i = 0; i < chunk_check; i++) {
+		/* Write the next chunk to flash */
+		readbytes = file_chunk_to_flash(&geckofile, slot_to_upgrade,
+						CONFIG_SYNCUP_DFU_CHUNK_SIZE);
+
+		if (readbytes <= 0) {
+			LOG_ERROR("Something failed to flash" ENDL);
+			status = -1;
+			goto end_closefiles;
+		}
+
+		/* A partial transfer is an error unless its the last chunk
+		 * TODO Can this ever happen under normal conditions? If so handle the error without
+		 * failing*/
+		if (readbytes != CONFIG_SYNCUP_DFU_CHUNK_SIZE && i != (chunk_check - 1)) {
+			LOG_ERROR("Incomplete chunk written to flash %d/%d" ENDL, readbytes,
+				  CONFIG_SYNCUP_DFU_CHUNK_SIZE);
+			status = -1;
+			goto end_closefiles;
+		}
+
+		totalreadbytes += readbytes;
+		memset(image_buffer, 0, sizeof(image_buffer));
+		LOG_DEBUG("Chunk %d Wrote %d bytes (%d/%d)" ENDL, chunk_cnt, readbytes,
+			  totalreadbytes, fw_image_size);
+		chunk_cnt++;
+	}
+
+	/* STAGE 3: Clean up and reboot */
+	fs_close(&geckofile);
+	fs_close(&gecko_sha1_file);
+
+	LOG_DEBUG("\ttotal bytes read       = %d bytes" ENDL, totalreadbytes);
+	LOG_DEBUG("GECKO FW update has completed - rebooting now" ENDL);
+	k_sleep(K_SECONDS(3));
+	sys_reboot(SYS_REBOOT_COLD);
+
+end_closefiles:
+	fs_close(&gecko_sha1_file);
+end_close_fw:
+	fs_close(&geckofile);
+end:
+
 	return status;
-} /* end of routine */
+}
+
+int get_gecko_fw_version(void)
+{
+	return get_oldest_slot() == -1 ? -1 : 0;
+}
 
 int dfu_mcu_firmware_upgrade(int slot_to_upgrade)
 {
@@ -585,3 +537,4 @@ int dfu_mcu_firmware_upgrade(int slot_to_upgrade)
 	ret = dfu_gecko_write_image(slot_to_upgrade);
 	return ret;
 }
+#endif /* CONFIG_SYNCUP_DFU */
