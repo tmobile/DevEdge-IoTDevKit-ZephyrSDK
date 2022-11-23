@@ -1801,6 +1801,9 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 						return -EINVAL;
 					}
 				}
+#else
+				shell_error(shell,"Can't program over currently running firmware");
+				return -EINVAL;
 #endif
 				shell_print(shell,"\nStarting the FW update for SiLabs Pearl Gecko");
 				int status;
