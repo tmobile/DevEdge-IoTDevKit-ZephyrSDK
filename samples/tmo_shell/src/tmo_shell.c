@@ -1703,6 +1703,10 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	int target = (int) strtol(argv[1], NULL, 10);
+	if (target > 2) {
+		shell_error(shell, "Only 3 targets supported (0-2)");
+		return -EINVAL;
+	}
 
 	if (argv[2] == NULL && target > 0) {
 		shell_error(shell, "There are no updates at this time");
