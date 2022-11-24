@@ -9,14 +9,15 @@
 /dts-v1/;
 #include <silabs/efm32pg12b500f1024gl125.dtsi>
 #include <dt-bindings/pwm/pwm.h>
+#include "dts/arm/silabs/tmo_dev_edge-pinctrl.dtsi"
 
 / {
     model = "Silicon Labs EFM32PG STK3402A board";
     compatible = "tmo,dev_edge";
     
     chosen {
-        zephyr,console = &leuart0;
-        zephyr,shell-uart = &leuart0;
+        zephyr,console = &usart0;
+        zephyr,shell-uart = &usart0;
         zephyr,sram = &sram0;
         zephyr,flash = &flash0;
         zephyr,sflash = &w25q64;
@@ -51,39 +52,39 @@
         compatible = "gpio-leds";
 
         led0: led_0 {
-            gpios = <&gpioc 7 0>;
+            gpios = <&gpioc GECKO_PIN(7) GPIO_ACTIVE_HIGH>;
         };
         led1: led_1 {
-            gpios = <&gpioc 8 0>;
+            gpios = <&gpioc GECKO_PIN(8) GPIO_ACTIVE_HIGH>;
         };
         led2: led_2 {
-            gpios = <&gpioc 9 0>;
+            gpios = <&gpioc GECKO_PIN(9) GPIO_ACTIVE_HIGH>;
         };
         led3: led_3 {
-            gpios = <&gpioc 10 0>;
-        };
-    };
-
-    pwmleds {
-        compatible = "pwm-leds";
-        white_pwm_led: white_pwm_led {
-            pwms = <&pwm1 0 1000 PWM_POLARITY_NORMAL>;
-        };
-        red_pwm_led: red_pwm_led {
-            pwms = <&pwm2 1 1000 PWM_POLARITY_NORMAL>;
-        };
-        green_pwm_led: green_pwm_led {
-            pwms = <&pwm3 2 1000 PWM_POLARITY_NORMAL>;
-        };
-        blue_pwm_led: blue_pwm_led {
-            pwms = <&pwm4 3 1000 PWM_POLARITY_NORMAL>;
+            gpios = <&gpioc GECKO_PIN(10) GPIO_ACTIVE_HIGH>;
         };
     };
 
     buttons {
         compatible = "gpio-keys";
         button0: button_0 {
-            gpios = <&gpiob 13 GPIO_ACTIVE_LOW>;
+            gpios = <&gpiob GECKO_PIN(13) GPIO_ACTIVE_LOW>;
+        };
+    };
+
+    pwmleds {
+        compatible = "pwm-leds";
+        white_pwm_led: white_pwm_led {
+            pwms = <&pwm1 0 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+        };
+        red_pwm_led: red_pwm_led {
+            pwms = <&pwm2 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+        };
+        green_pwm_led: green_pwm_led {
+            pwms = <&pwm3 2 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+        };
+        blue_pwm_led: blue_pwm_led {
+            pwms = <&pwm4 3 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
         };
     };
 
@@ -99,9 +100,9 @@
 
 &usart0 {
     current-speed = <115200>;
-    location-rx = <GECKO_LOCATION(28) GECKO_PORT_F GECKO_PIN(5)>;
-    location-tx = <GECKO_LOCATION(28) GECKO_PORT_F GECKO_PIN(4)>;
     status = "okay";   
+    pinctrl-0 = <&usart0_default>;
+    pinctrl-names = "default";
 };
 
 &usart1 {
@@ -110,7 +111,7 @@
     location-tx     = <GECKO_LOCATION(20) GECKO_PORT_D GECKO_PIN(12)>;
     location-cts    = <GECKO_LOCATION(15) GECKO_PORT_D GECKO_PIN(11)>;    
     location-rts    = <GECKO_LOCATION(13) GECKO_PORT_D GECKO_PIN(10)>;
-    hw-flow-control;
+//    hw-flow-control;
     status = "okay";
     
     murata_1sc: murata_1sc {
@@ -188,12 +189,14 @@
     };
 };
 
+/* Not implemented yet
 &leuart0 {
     current-speed = <9600>;
-    location-rx = <GECKO_LOCATION(6) GECKO_PORT_B GECKO_PIN(12)>;
-    location-tx = <GECKO_LOCATION(6) GECKO_PORT_B GECKO_PIN(11)>;
     status = "okay";
+    pinctrl-0 = <&leuart0_default>;
+    pinctrl-names = "default";
 };
+ */
 
 &i2c0 {
     location-sda = <GECKO_LOCATION(1) GECKO_PORT_A GECKO_PIN(1)>;
@@ -262,13 +265,12 @@
     status = "okay";
 
     /* Buzzer */ 
-    pwm0: pwm0 {
+    pwm0: pwm {
         compatible = "silabs,gecko-pwm";
 
         status = "okay";
         pin-location = <GECKO_LOCATION(16) GECKO_PORT_C GECKO_PIN(11)>;
         prescaler = <4>;
-        #pwm-cells = <3>;
     };
 };
 
@@ -276,36 +278,32 @@
     status = "okay";
 
     /* White LED */
-    pwm1: pwm1 {
+    pwm1: pwm {
         compatible = "silabs,gecko-pwm";
 
         status = "okay";
         pin-location = <GECKO_LOCATION(12) GECKO_PORT_C GECKO_PIN(7)>;
-        #pwm-cells = <3>;
     };
     /* Red LED */
-    pwm2: pwm2 {
+    pwm2: pwm {
         compatible = "silabs,gecko-pwm";
 
         status = "okay";
         pin-location = <GECKO_LOCATION(12) GECKO_PORT_C GECKO_PIN(8)>;
-        #pwm-cells = <3>;
     };
     /* Green LED */
-    pwm3: pwm3 {
+    pwm3: pwm {
         compatible = "silabs,gecko-pwm";
 
         status = "okay";
         pin-location = <GECKO_LOCATION(12) GECKO_PORT_C GECKO_PIN(9)>;
-        #pwm-cells = <3>;
     };
     /* Blue LED */
-    pwm4: pwm4 {
+    pwm4: pwm {
         compatible = "silabs,gecko-pwm";
 
         status = "okay";
         pin-location = <GECKO_LOCATION(12) GECKO_PORT_C GECKO_PIN(10)>;
-        #pwm-cells = <3>;
     };
 };
 
