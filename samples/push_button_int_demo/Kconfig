@@ -1,0 +1,32 @@
+# Copyright (c) 2022 T-Mobile USA, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "tmo_shell application settings"
+
+config TMO_SHELL_SSID
+    string "SSID of WiFi network to automatically connect to"
+    default ""
+ 
+config TMO_SHELL_PSK
+    string "PSK of WiFi network to automatically connect to"
+    default ""
+
+config TMO_SHELL_USE_MBED
+    bool "Configure HTTP to use mbedTLS for TLS connections"
+    default n
+
+config TMO_SHELL_BUILD_EK
+    bool "Build in ekermit"
+    select USE_SEGGER_RTT
+    default n
+
+config TMO_HTTP_MOCK_SOCKET
+    bool "Use mock socket for HTTP unit testing"
+    default n
+
+config SEGGER_RTT_BUFFER_SIZE_DOWN
+    int
+    default 8192 if TMO_SHELL_BUILD_EK
+
+source "Kconfig.zephyr"
