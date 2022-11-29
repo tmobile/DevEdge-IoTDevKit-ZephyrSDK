@@ -1716,6 +1716,16 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 	return tmo_dfu_download(shell, target, argv[2], argv[3]);
 }
 
+int cmd_dfu_get_slot(const struct shell *shell, size_t argc, char **argv) 
+{
+#ifdef BOOT_SLOT
+	shell_print(shell, "Slot %s", BOOT_SLOT);
+#else
+	shell_print(shell, "BOOT_SLOT Undefined");
+#endif
+	return 0;
+}
+
 int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2) {
@@ -2144,6 +2154,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_dfu_sub,
 		SHELL_CMD(settings, NULL, "Print DFU settings", cmd_dfu_print_settings),
 		SHELL_CMD(update, NULL, "Update FW", cmd_dfu_update),
 		SHELL_CMD(version, NULL, "Get current FW version", cmd_dfu_get_version),
+		SHELL_CMD(slot, NULL, "Get current slot", cmd_dfu_get_slot),
 		SHELL_SUBCMD_SET_END
 		);
 
