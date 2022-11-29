@@ -48,5 +48,5 @@ typedef struct
 
 } ntp_packet;              // Total: 384 bits or 48 bytes.
 
-int tmo_update_time(const struct shell *shell, char * server);
+int tmo_update_time(const struct shell *shell, char * server, int iface_idx);
 #endif

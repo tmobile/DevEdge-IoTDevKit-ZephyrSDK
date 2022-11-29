@@ -1506,14 +1506,21 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_wifi_commands,
 
 int cmd_sntp(const struct shell *shell, size_t argc, char **argv)
 {
-	if (argc < 2) {
+	if (argc < 3) {
 		shell_error(shell, "Missing required arguments");
-		shell_print(shell, "Usage: tmo sntp <ip or domain> <server>");
+		shell_print(shell, "Usage: tmo sntp <iface> <server>");
 		return -EINVAL;
 	}	  
 
-	
-	return tmo_update_time(shell, argv[1]);
+	int status = -1;
+
+	for (int i = 0; i < 3; i++) {
+		status = tmo_update_time(shell, argv[2], strtol(argv[1], NULL, 10));
+		if (!status || errno != -EAGAIN) {
+			return status;
+		}
+	}
+	return -1;
 }
 int cmd_gnss(const struct shell *shell, size_t argc, char **argv)
 {

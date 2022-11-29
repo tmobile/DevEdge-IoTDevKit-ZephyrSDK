@@ -144,7 +144,7 @@ int isValidIpAddress(char *ipAddress)
 }
 
 
-int tmo_update_time(const struct shell *shell, char *host)
+int tmo_update_time(const struct shell *shell, char *host, int iface_idx)
 {
 #if defined(CONFIG_NET_IPV6)
 #ifdef DEBUG
@@ -161,14 +161,18 @@ int tmo_update_time(const struct shell *shell, char *host)
 	// Set the first byte's bits to 00,011,011 for li = 0, vn = 3, and mode = 3. The rest will be left set to zero.
 	*( ( char * ) &packet + 0 ) = 0x1b; // Represents 27 in base 10 or 00011011 in base 2.
 
-	int iface_idx = 2;
 	struct net_if *iface = net_if_get_by_index(iface_idx);
+	
+	if (tmo_offload_init(iface_idx)) {
+		return -1;
+	}
+
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", iface_idx);
 		return -EINVAL;
 	}
 
-	int sd = zsock_socket_ext(AF_INET, SOCK_DGRAM, IPPROTO_UDP, iface );
+	int sd = zsock_socket_ext(AF_INET, SOCK_DGRAM, IPPROTO_UDP, iface);
 	if (sd == -1) {
 		shell_error(shell, "Socket creation failed, errno = %d", errno);
 		return 0;
@@ -215,12 +219,9 @@ int tmo_update_time(const struct shell *shell, char *host)
 	while (total < recvsize || recvsize == 0) {
 		stat = zsock_recv(sd,  (( char* ) &packet) + total, recvsize - total, ZSOCK_MSG_DONTWAIT);
 		if (stat == -1) {
-			if ((total == 0) || (errno != EAGAIN)) {
-				shell_error(shell, "recv failed, errno = %d", errno);
-				zsock_close(sd);
-				return -1;
-			}
-			break;
+			shell_error(shell, "recv failed, errno = %d", errno);
+			zsock_close(sd);
+			return -1;
 		}
 		total += stat;
 	}
