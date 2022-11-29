@@ -1721,7 +1721,7 @@ int cmd_dfu_get_slot(const struct shell *shell, size_t argc, char **argv)
 #ifdef BOOT_SLOT
 	shell_print(shell, "Slot %s", BOOT_SLOT);
 #else
-	shell_print(shell, "BOOT_SLOT Undefined");
+	shell_print(shell, "Slot Undefined");
 #endif
 	return 0;
 }
