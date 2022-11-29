@@ -1704,11 +1704,33 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2) {
 		shell_error(shell, "Missing required arguments");
-		shell_print(shell, "Usage: tmo dfu download <target>\n"
-				"       target: 0 for mcu, 1 for modem, 2 for wifi");
+		shell_print(shell, "Usage: tmo dfu download <target> [filename]\n"
+				"       target: 0 for mcu, 1 for modem, 2 for wifi\n"
+				"       filename(optional): base filename e.g tmo_shell.tmo_dev_edge");
 		return -EINVAL;
 	}
-	return tmo_dfu_download( (int) strtol(argv[1], NULL, 10));
+	int target = (int) strtol(argv[1], NULL, 10);
+	if (target > 2) {
+		shell_error(shell, "Only 3 targets supported (0-2)");
+		return -EINVAL;
+	}
+
+	if (argv[2] == NULL && target > 0) {
+		shell_error(shell, "There are no updates at this time");
+		return -EINVAL;
+	}
+
+	return tmo_dfu_download(shell, target, argv[2], argv[3]);
+}
+
+int cmd_dfu_get_slot(const struct shell *shell, size_t argc, char **argv) 
+{
+#ifdef BOOT_SLOT
+	shell_print(shell, "Slot %s", BOOT_SLOT);
+#else
+	shell_print(shell, "Slot Undefined");
+#endif
+	return 0;
 }
 
 int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
@@ -1767,22 +1789,39 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 {
-	if (argc < 3){
-		shell_error(shell, "Missing required arguments");
-		shell_print(shell, "Usage: tmo dfu update <target> <modem delta file>\n"
-				"       target          : 0 for mcu, 1 for modem, 2 for wifi/ble\n"
-				"       modem delta file: SAMPLE: 0 for update3.2.20351_20161_dis.ua, 1 for update3.2.20161_20351_dis.ua\n"
-				"                         GOLDEN: 2 for update20351_20161_801_test.ua, 3 for update20161_20351_801_test.ua\n");
-		return -EINVAL;
-	}
-
 	int firmware_target = (int) strtol(argv[1], NULL, 10);
 	int delta_firmware_target = (int) strtol(argv[2], NULL, 10);
+
+	if (((argc < 2) && (firmware_target != DFU_GECKO)) || 
+			((argc != 3) && (firmware_target == DFU_GECKO))) {
+		shell_error(shell, "Missing required arguments");
+		shell_print(shell, "Usage: tmo dfu update <target>\n"
+				"       target : 0 for mcu, 1 for modem, 2 for wifi/ble\n"
+				"       mcu_slot(optional): slot to update. Applicable only to mcu target\n"
+				"       Usage (mcu): \n"
+				"                   tmo dfu update 0 [slot]\n"
+				"       Usage (modem): \n"
+				"                   tmo dfu update 1 [modem_delta_file]\n"
+				"       Usage (wifi/ble): \n"
+				"                   tmo dfu update 2\n");
+		return -EINVAL;
+	}
 
 	switch (firmware_target)
 	{
 		case DFU_GECKO:
 			{
+#ifdef BOOT_SLOT
+				if ((strcmp(BOOT_SLOT, "0") || strcmp(BOOT_SLOT, "1"))) {
+					if (atoi(BOOT_SLOT) == delta_firmware_target) {
+						shell_error(shell,"Can't program slot you are running from");
+						return -EINVAL;
+					}
+				}
+#else
+				shell_error(shell,"Can't program over currently running firmware");
+				return -EINVAL;
+#endif
 				shell_print(shell,"\nStarting the FW update for SiLabs Pearl Gecko");
 				int status;
 				status = dfu_mcu_firmware_upgrade(delta_firmware_target);
@@ -2120,6 +2159,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_dfu_sub,
 		SHELL_CMD(settings, NULL, "Print DFU settings", cmd_dfu_print_settings),
 		SHELL_CMD(update, NULL, "Update FW", cmd_dfu_update),
 		SHELL_CMD(version, NULL, "Get current FW version", cmd_dfu_get_version),
+		SHELL_CMD(slot, NULL, "Get current slot", cmd_dfu_get_slot),
 		SHELL_SUBCMD_SET_END
 		);
 

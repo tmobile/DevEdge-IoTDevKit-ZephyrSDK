@@ -41,7 +41,16 @@ static char base_url_s[MAX_BASE_URL_LEN] = "https://devkit.devedge.t-mobile.com/
 
 static int iface_s = WIFI_ID; // Default iface is wifi
 
-int dfu_download(const struct dfu_file_t *dfu_file)
+char *dfu_target_str(enum dfu_tgts dfu_tgt) {
+	switch(dfu_tgt) {
+		case DFU_GECKO: return "MCU";
+		case DFU_MODEM: return "Modem";
+		default: 
+			return "WiFi";
+	}
+}
+
+int dfu_download(const struct dfu_file_t *dfu_file, enum dfu_tgts dfu_tgt)
 {
 	int ret;
 	unsigned char sha1_output[20];
@@ -52,7 +61,7 @@ int dfu_download(const struct dfu_file_t *dfu_file)
 		printf("URL was truncated\n");
 	}
 
-	printf("\nDownloading firmware for %s\n", dfu_file->desc);
+	printf("\nDownloading %s firmware %s\n", dfu_target_str(dfu_tgt), dfu_file->desc);
 	printf("from url: %s\n", url);
 	printf("to file : %s\n", dfu_file->lfile);
 
@@ -140,21 +149,53 @@ int dfu_download(const struct dfu_file_t *dfu_file)
 	return totalbytes;
 }
 
-int tmo_dfu_download(enum dfu_tgts dfu_tgt)
+void generate_mcu_filename(struct dfu_file_t *dfu_files_mcu, char *base, char *version, int slots) {
+    for (int i = 0; i < slots; i++) {
+			/* BIN	*/
+			sprintf(dfu_files_mcu[i].desc, "%s %d/%d", base ,i+1, slots*2);
+			sprintf(dfu_files_mcu[i].lfile, "/tmo/zephyr.slot%d.bin", i);
+			sprintf(dfu_files_mcu[i].rfile, "%s.slot%d.%s.bin",base, i, version);
+			memset(dfu_files_mcu[i].sha1, 0, DFU_SHA1_LEN);
+
+			/* SHA1 */
+			sprintf(dfu_files_mcu[i+slots].desc, "%s %d/%d", base, i + (1+slots), slots*2);
+			sprintf(dfu_files_mcu[i+slots].lfile, "%s.sha1", dfu_files_mcu[i].lfile);
+			sprintf(dfu_files_mcu[i+slots].rfile, "%s.sha1",dfu_files_mcu[i].rfile);
+			memset(dfu_files_mcu[i+slots].sha1, 0, DFU_SHA1_LEN);
+	}
+}
+
+int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *base, char *version)
 {
 	mbedtls_sha1_init(&sha1_ctx);
 	const struct dfu_file_t *dfu_files = NULL;
+	struct dfu_file_t dfu_files_mcu_gen[5];
+
+	memset(dfu_files_mcu_gen,0,sizeof(struct dfu_file_t) * 5);
 
 	switch (dfu_tgt) {
 		case DFU_GECKO:
-			dfu_files = dfu_files_mcu;
+			if (base == NULL) 
+				dfu_files = dfu_files_mcu;
+			else {
+				generate_mcu_filename(dfu_files_mcu_gen,base,version,2);
+				dfu_files = dfu_files_mcu_gen;
+			}
 			break;
 
 		case DFU_MODEM:
+			sprintf((char *)dfu_files_modem[0].desc, "%s 1/2",base);
+			sprintf((char *)dfu_files_modem[0].rfile, "%s.ua",base);
+			sprintf((char *)dfu_files_modem[1].desc, "%s 2/2 ",base);
+			sprintf((char *)dfu_files_modem[1].rfile, "%s.sha1",dfu_files_modem[0].rfile);
 			dfu_files = dfu_files_modem;
 			break;
 
 		case DFU_9116W:
+			sprintf((char *)dfu_files_rs9116w[0].desc, "%s 1/2",base);
+			sprintf((char *)dfu_files_rs9116w[0].rfile, "%s.rps",base);
+			sprintf((char *)dfu_files_rs9116w[1].desc, "%s 2/2",base);
+			sprintf((char *)dfu_files_rs9116w[1].rfile, "%s.sha1",dfu_files_rs9116w[0].rfile);
 			dfu_files = dfu_files_rs9116w;
 			break;
 
@@ -170,7 +211,7 @@ int tmo_dfu_download(enum dfu_tgts dfu_tgt)
 	int total = 0;
 	int idx = 0;
 	while (strlen(dfu_files[idx].desc)) {
-		total += dfu_download(&dfu_files[idx++]);
+		total += dfu_download(&dfu_files[idx++], dfu_tgt);
 	}
 	printf("\nTotal size downloaded: %d\n", total);
 	printf("Done!\n");
