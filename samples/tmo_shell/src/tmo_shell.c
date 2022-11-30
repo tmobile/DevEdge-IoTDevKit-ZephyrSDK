@@ -53,6 +53,7 @@ typedef int sec_tag_t;
 #include "tmo_battery_ctrl.h"
 #include "tmo_shell.h"
 #include "tmo_sntp.h"
+#include "tmo_modem.h"
 
 #if CONFIG_TMO_SHELL_BUILD_EK
 #include "ek18/src/kermit_cmd.h"
@@ -123,7 +124,7 @@ int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv);
 int tmo_set_modem(enum murata_1sc_io_ctl cmd, union params_cmd* params, int sd)
 {
 	int res = -1;
-	res = fcntl(sd, cmd, params);
+	res = fcntl_ptr(sd, cmd, params);
 	return res;
 }
 
@@ -1090,7 +1091,7 @@ int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 	// shell_print(shell, "About to call fcntl to send sms, phone: %s, msg: %s\n", argv[2], argv[3]);
 	snprintf(sms.phone, SMS_PHONE_MAX_LEN, "%s", argv[2]);
 	snprintf(sms.msg, CONFIG_MODEM_SMS_OUT_MSG_MAX_LEN + 1, "%s", argv[3]);
-	ret = fcntl(sock_idx, SMS_SEND, &sms);
+	ret = fcntl_ptr(sock_idx, SMS_SEND, &sms);
 	// printf("returned from fcntl, ret = %d\n", ret);
 	return ret;
 }
@@ -1121,7 +1122,7 @@ int sock_recvsms(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	sms.timeout = K_SECONDS(wait);
-	ret = fcntl(sock_idx, SMS_RECV, &sms);
+	ret = fcntl_ptr(sock_idx, SMS_RECV, &sms);
 	if (ret > 0)
 		shell_print(shell, "Received SMS from %s at %s: %s\n", sms.phone, sms.time, sms.msg);
 	else
@@ -1233,7 +1234,7 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 	} else {
 		strcpy(cmd_buf, argv[2]);
 		strupper(cmd_buf);
-		int res = fcntl(sd, GET_ATCMD_RESP, cmd_buf);
+		int res = fcntl_ptr(sd, GET_ATCMD_RESP, cmd_buf);
 		if (res < 0) {
 			shell_error(shell, "request: %s failed, error: %d\n", argv[2], res);
 		} else if (cmd_buf[0] == 0) {
@@ -2217,15 +2218,15 @@ int cmd_tmo_cert_modem_load(const struct shell* shell, int argc, char **argv)
 		return EIO;
 	}
 
-	if (fcntl(sock, CHECK_CERT, name) == 0) {
+	if (fcntl_ptr(sock, CHECK_CERT, name) == 0) {
 		if (!force) {
 			shell_error(shell, "Cert already loaded!");
 			zsock_close(sock);
 			return EIO;
 		}
-		fcntl(sock, DEL_CERT, name);
+		fcntl_ptr(sock, DEL_CERT, name);
 	}
-	fcntl(sock, STORE_CERT, &cparams);
+	fcntl_ptr(sock, STORE_CERT, &cparams);
 	zsock_close(sock);
 
 	return 0;
