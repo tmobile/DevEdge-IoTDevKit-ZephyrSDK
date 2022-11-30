@@ -20,6 +20,7 @@
 #include <mbedtls/sha1.h>
 #include <drivers/gpio.h>
 #include <drivers/modem/murata-1sc.h>
+#include <limits.h>
 
 #include "tmo_dfu_download.h"
 #include "dfu_murata_1sc.h"
@@ -295,6 +296,42 @@ static int file_read_flash(const int delta_file, uint32_t bytesToRead)
 	return 0;
 }
 
+#ifdef CONFIG_SOC_SERIES_EFM32PG12B
+/**
+ * @brief Passes a pointers data to fnctl which requires int.
+ * This code is not portable, it expects the pointer to be representable
+ * as a positive signed integer. This should not be an issue on the
+ * EFM32PG12 since it does not address any RAM or ROM above 0x24000000
+ *
+ * Implementers of additional systems need to ensure this call is safe for their
+ * platform.
+ *
+ * @param sock The sock to send to
+ * @param cmd The command to send
+ * @param ptr The pointer to send encoded as a positive signed integer.
+ * @return int The fcntl return if the pointer can be cast, or -EOVERFLOW on error
+ */
+int fcntl_ptr(int sock, int cmd, const void* ptr) {
+	uintptr_t uiptr = (uintptr_t) ptr;
+	/* It's fine if this overflows */
+	unsigned int flags = uiptr;
+
+	if (uiptr > INT_MAX) {
+		return -EOVERFLOW;
+	}
+
+	/* va_arg is defined for (unsigned T) -> (signed T) as long as the value can be represented by both types (C11 7.16.1.1) */
+	return fcntl(sock, cmd, flags);
+}
+#else
+int fcntl_ptr(int sock, int cmd, const void* ptr) {
+	(void) sock;
+	(void) cmd;
+	(void) ptr;
+	return -ENOTSUP;
+}
+#endif
+
 int dfu_send_ioctl(int cmd, int numofbytes) {
 	int res = -1;
 	struct net_if *iface = net_if_get_by_index(1);
@@ -305,7 +342,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 	switch (cmd) {
 		case AT_GET_FILE_MODE:
-			res = fcntl(sd, GET_FILE_MODE, recv_buff_hdr);
+			res = fcntl_ptr(sd, GET_FILE_MODE, recv_buff_hdr);
 
 			if (res < 0) {
 				printf("GET_FILE_MODE failed\n");
@@ -313,7 +350,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			break;
 
 		case AT_GET_CHKSUM_ABILITY:
-			res = fcntl(sd, GET_CHKSUM_ABILITY, recv_buff_hdr);
+			res = fcntl_ptr(sd, GET_CHKSUM_ABILITY, recv_buff_hdr);
 
 			if (res < 0) {
 				printf("GET_CHKSUM_ABILITY failed\n");
@@ -330,7 +367,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 					init_xfer_params.imagesize,
 					init_xfer_params.imagecrc);
 
-			res = fcntl(sd, INIT_FW_XFER, &init_xfer_params);
+			res = fcntl_ptr(sd, INIT_FW_XFER, &init_xfer_params);
 
 			if (res < 0) {
 				printf("\tINIT_FW_XFER failed with update.ua, error %d\n", res);
@@ -341,7 +378,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			break;
 
 		case AT_SEND_FW_HEADER:
-			res = fcntl(sd, SEND_FW_HEADER, recv_buff_hdr);
+			res = fcntl_ptr(sd, SEND_FW_HEADER, recv_buff_hdr);
 
 			if (res < 0) {
 				printf("\tSEND_FW_HEADER failed\n");
@@ -357,7 +394,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			send_params.more = 1;
 			send_params.len  = numofbytes;
 
-			res = fcntl(sd, SEND_FW_DATA, &send_params);
+			res = fcntl_ptr(sd, SEND_FW_DATA, &send_params);
 
 			if (res < 0) {
 				printf("\tSEND_FW_DATA failed, error %d\n", res);
@@ -369,7 +406,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			send_params.more = 0;
 			send_params.len  = numofbytes;
 
-			res = fcntl(sd, SEND_FW_DATA, &send_params);
+			res = fcntl_ptr(sd, SEND_FW_DATA, &send_params);
 
 			if (res < 0) {
 				printf("\tSEND_FW_DATADONE failed, error %d\n", res);
@@ -380,7 +417,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 		case AT_INIT_FW_UPGRADE:
 			// AT%UPGCMD="UPGVRM","b:/update.ua"
-			res = fcntl(sd, INIT_FW_UPGRADE, "b:/update.ua");
+			res = fcntl_ptr(sd, INIT_FW_UPGRADE, "b:/update.ua");
 
 			if (res < 0) {
 				printf("\tAT_INIT_FW_UPGRADE failed with update.ua\n");
@@ -417,7 +454,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			break;
 
 		case AT_RESET_MODEM:
-			res = fcntl(sd, RESET_MODEM);
+			res = fcntl_ptr(sd, RESET_MODEM, NULL);
 
 			if (res < 0) {
 				printf("\tAT_RESET_MODEM failed\n");
@@ -640,7 +677,7 @@ int dfu_modem_get_version(char *dfu_murata_version_str) {
 	}
 	memset(dfu_murata_version_str, 0, DFU_MODEM_FW_VER_SIZE);
 	strcpy(dfu_murata_version_str, "VERSION");
-	int res = fcntl(sd, GET_ATCMD_RESP, dfu_murata_version_str);
+	int res = fcntl_ptr(sd, GET_ATCMD_RESP, dfu_murata_version_str);
 	zsock_close(sd);
 
 	if (res < 0) {
@@ -662,7 +699,7 @@ int dfu_modem_is_golden()
 	if (sd == -1) {
 		return 0;
 	}
-	int res = fcntl(sd, GET_ATCMD_RESP, dfu_golden_str);
+	int res = fcntl_ptr(sd, GET_ATCMD_RESP, dfu_golden_str);
 	zsock_close(sd);
 
 	if (res < 0) {
