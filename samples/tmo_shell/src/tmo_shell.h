@@ -49,6 +49,7 @@ static inline void gen_payload(uint8_t *buf, int len)
 		buf[i] = 0x20 + (i % 97);
 }
 
+#if defined(CONFIG_NET_OFFLOAD) && defined(CONFIG_NET_SOCKETS_OFFLOAD)
 static inline int zsock_socket_ext(int family, int type, int proto, struct net_if *iface)
 {
   if (iface->if_dev->offload && iface->if_dev->socket_offload != NULL){
@@ -58,6 +59,7 @@ static inline int zsock_socket_ext(int family, int type, int proto, struct net_i
     return -1;
   }
 }
+#endif
 
 extern const struct shell *shell;
 
