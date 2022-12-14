@@ -20,10 +20,12 @@
 #include <mbedtls/sha1.h>
 #include <drivers/gpio.h>
 #include <drivers/modem/murata-1sc.h>
+#include <limits.h>
 
 #include "tmo_dfu_download.h"
 #include "dfu_murata_1sc.h"
 #include "tmo_shell.h"
+#include "tmo_modem.h"
 
 /* The Murata 1SC updates below are "delta files" for updating
  * between two FW versions. Early (Beta/Pilot) dev kits contain
@@ -305,7 +307,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 	switch (cmd) {
 		case AT_GET_FILE_MODE:
-			res = fcntl(sd, GET_FILE_MODE, recv_buff_hdr);
+			res = fcntl_ptr(sd, GET_FILE_MODE, recv_buff_hdr);
 
 			if (res < 0) {
 				printf("GET_FILE_MODE failed\n");
@@ -313,7 +315,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			break;
 
 		case AT_GET_CHKSUM_ABILITY:
-			res = fcntl(sd, GET_CHKSUM_ABILITY, recv_buff_hdr);
+			res = fcntl_ptr(sd, GET_CHKSUM_ABILITY, recv_buff_hdr);
 
 			if (res < 0) {
 				printf("GET_CHKSUM_ABILITY failed\n");
@@ -330,7 +332,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 					init_xfer_params.imagesize,
 					init_xfer_params.imagecrc);
 
-			res = fcntl(sd, INIT_FW_XFER, &init_xfer_params);
+			res = fcntl_ptr(sd, INIT_FW_XFER, &init_xfer_params);
 
 			if (res < 0) {
 				printf("\tINIT_FW_XFER failed with update.ua, error %d\n", res);
@@ -341,7 +343,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			break;
 
 		case AT_SEND_FW_HEADER:
-			res = fcntl(sd, SEND_FW_HEADER, recv_buff_hdr);
+			res = fcntl_ptr(sd, SEND_FW_HEADER, recv_buff_hdr);
 
 			if (res < 0) {
 				printf("\tSEND_FW_HEADER failed\n");
@@ -357,7 +359,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			send_params.more = 1;
 			send_params.len  = numofbytes;
 
-			res = fcntl(sd, SEND_FW_DATA, &send_params);
+			res = fcntl_ptr(sd, SEND_FW_DATA, &send_params);
 
 			if (res < 0) {
 				printf("\tSEND_FW_DATA failed, error %d\n", res);
@@ -369,7 +371,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			send_params.more = 0;
 			send_params.len  = numofbytes;
 
-			res = fcntl(sd, SEND_FW_DATA, &send_params);
+			res = fcntl_ptr(sd, SEND_FW_DATA, &send_params);
 
 			if (res < 0) {
 				printf("\tSEND_FW_DATADONE failed, error %d\n", res);
@@ -380,7 +382,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 		case AT_INIT_FW_UPGRADE:
 			// AT%UPGCMD="UPGVRM","b:/update.ua"
-			res = fcntl(sd, INIT_FW_UPGRADE, "b:/update.ua");
+			res = fcntl_ptr(sd, INIT_FW_UPGRADE, "b:/update.ua");
 
 			if (res < 0) {
 				printf("\tAT_INIT_FW_UPGRADE failed with update.ua\n");
@@ -417,7 +419,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			break;
 
 		case AT_RESET_MODEM:
-			res = fcntl(sd, RESET_MODEM);
+			res = fcntl_ptr(sd, RESET_MODEM, NULL);
 
 			if (res < 0) {
 				printf("\tAT_RESET_MODEM failed\n");
@@ -640,7 +642,7 @@ int dfu_modem_get_version(char *dfu_murata_version_str) {
 	}
 	memset(dfu_murata_version_str, 0, DFU_MODEM_FW_VER_SIZE);
 	strcpy(dfu_murata_version_str, "VERSION");
-	int res = fcntl(sd, GET_ATCMD_RESP, dfu_murata_version_str);
+	int res = fcntl_ptr(sd, GET_ATCMD_RESP, dfu_murata_version_str);
 	zsock_close(sd);
 
 	if (res < 0) {
@@ -662,7 +664,7 @@ int dfu_modem_is_golden()
 	if (sd == -1) {
 		return 0;
 	}
-	int res = fcntl(sd, GET_ATCMD_RESP, dfu_golden_str);
+	int res = fcntl_ptr(sd, GET_ATCMD_RESP, dfu_golden_str);
 	zsock_close(sd);
 
 	if (res < 0) {
