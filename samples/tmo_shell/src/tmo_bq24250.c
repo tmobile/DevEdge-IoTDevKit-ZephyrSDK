@@ -40,7 +40,7 @@ struct drv_data {
 static bool restart_setup = false;
 
 /* BQ Battery and Charger Status */
-const struct device *gpiof_dev;
+const struct device *gpiof_dev = DEVICE_DT_GET(DT_NODELABEL(gpiof));
 
 static const struct device *i2c1_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 
@@ -57,7 +57,7 @@ static int i2c_read_to_buffer(uint8_t dev_addr, int reg_addr, uint8_t *buf, uint
 	int reg_addr_bytes;
 	int ret;
 
-	dev = device_get_binding("I2C_1");
+	dev = i2c1_dev;
 	if (!dev) {
 		printf("I2C: Device driver I2C_1 not found."); 
 		return -ENODEV;
@@ -275,9 +275,9 @@ static void bq_thread(void *a, void *b, void *c)
 
 				/* Setup and configure the interrupt for BQ_INT */
 
-				gpiof_dev = device_get_binding(BQ_GPIO_F_NAME);
 				if (!gpiof_dev) {
 					printf("GPIOF driver error\n");
+					return;
 				}
 
 				/* Setup GPIO input, and triggers on falling edge. */

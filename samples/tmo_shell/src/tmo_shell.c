@@ -577,9 +577,9 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 			// SD: iface=%d proto=<TLS/TCP/UDP> <CONNECTED> <BOUND>
 		if (socks[sock_idx].flags & BIT(sock_open)) {
 			struct net_if *iface = socks[sock_idx].dev;
-			if (strcmp(iface->if_dev->dev->name, "murata,1sc") == 0) {
+			if (strncmp(iface->if_dev->dev->name, "murata", 6) == 0) {
 				devid = MODEM_ID;
-			} else if (strcmp(iface->if_dev->dev->name, "RS9116W_0") == 0) {
+			} else if (strncmp(iface->if_dev->dev->name, "rs9116", 6) == 0) {
 				devid = WIFI_ID;
 			} else {
 				shell_error(shell, "Unknown interface: %s", iface->if_dev->dev->name);
@@ -1969,7 +1969,6 @@ int cmd_mfg_test(const struct shell *shell, size_t argc, char **argv)
 {
 	int rc = 0;
 	shell_print(shell, "Run mfg tests...");
-
 	rc |= buzzer_test();
 	k_sleep(K_SECONDS(1));
 	rc |= led_test();
@@ -2351,7 +2350,6 @@ void tmo_shell_main (void)
 	gecko_flash_dev = device_get_binding("FLASH_CTRL");
 	if (!gecko_flash_dev) {
 		printf("\nFLASH_CTRL: Device driver FLASH_CTRL not found\n");
-		exit(-1);
 	}
 	else {
 		printf("Gecko flash driver FLASH_CTRL ready!\n");
