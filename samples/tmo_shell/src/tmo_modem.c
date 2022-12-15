@@ -1,6 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/drivers/modem/murata-1sc.h>
 #include <zephyr/net/socket.h>
 
