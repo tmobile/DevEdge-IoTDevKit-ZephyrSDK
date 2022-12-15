@@ -77,14 +77,14 @@ const struct device *gecko_flash_dev = NULL;
 
 #if (CONFIG_SPI_NOR - 0) || \
 	DT_NODE_HAS_STATUS(DT_INST(0, jedec_spi_nor), okay)
-#define FLASH_DEVICE DT_LABEL(DT_INST(0, jedec_spi_nor))
+#define FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, jedec_spi_nor))
 #define FLASH_NAME "JEDEC SPI-NOR"
 #elif (CONFIG_NORDIC_QSPI_NOR - 0) || \
 	DT_NODE_HAS_STATUS(DT_INST(0, nordic_qspi_nor), okay)
-#define FLASH_DEVICE DT_LABEL(DT_INST(0, nordic_qspi_nor))
+#define FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, nordic_qspi_nor))
 #define FLASH_NAME "JEDEC QSPI-NOR"
 #elif DT_NODE_HAS_STATUS(DT_INST(0, st_stm32_qspi_nor), okay)
-#define FLASH_DEVICE DT_LABEL(DT_INST(0, st_stm32_qspi_nor))
+#define FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, st_stm32_qspi_nor))
 #define FLASH_NAME "JEDEC QSPI-NOR"
 #else
 #error Unsupported flash driver
@@ -2090,7 +2090,7 @@ FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(lfs_data);
 static struct fs_mount_t littlefs_mnt = {
 	.type = FS_LITTLEFS,
 	.fs_data = &lfs_data,
-	.storage_dev = (void *)FLASH_AREA_ID(storage),
+	.storage_dev = (void *)FIXED_PARTITION_ID(storage_partition1),
 };
 #endif
 
