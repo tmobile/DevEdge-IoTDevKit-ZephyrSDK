@@ -633,11 +633,14 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 		}
 		uint16_t port = (uint16_t)strtol(port_st, NULL, 10);
 		if (port) {
-			if (target.sa_family == AF_INET6) {
-				net_sin6(&target)->sin6_port = htons(port);
-			} else {
-				net_sin(&target)->sin_port = htons(port);
+			if (target.sa_family == AF_INET) {
+				net_sin(&target)->sin_port = htons(port);	
 			}
+#if IS_ENABLED(CONFIG_NET_IPV6)
+			else {
+				net_sin6(&target)->sin6_port = htons(port);	
+			}
+#endif
 		}
 		ret = zsock_connect(sd, &target, 
 				target.sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) 
@@ -753,10 +756,13 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 		if (ai_family == AF_INET) {
 			net_sin(&target)->sin_family = AF_INET;
 			net_sin(&target)->sin_port = htons(port);
-		} else {
+		}
+#if IS_ENABLED(CONFIG_NET_IPV6)
+		else {
 			net_sin6(&target)->sin6_family = AF_INET6;
 			net_sin6(&target)->sin6_port = htons(port);
 		}
+#endif
 	} else {
 		static struct addrinfo hints;
 		struct zsock_addrinfo *res;
@@ -1014,8 +1020,13 @@ int sock_rcvfrom(const struct shell *shell, size_t argc, char **argv)
 	memset(mxfer_buf, 0, XFER_SIZE);
 	char addrbuf[NET_IPV6_ADDR_LEN];
 	stat = zsock_recvfrom(sd, mxfer_buf, XFER_SIZE, ZSOCK_MSG_DONTWAIT, (struct sockaddr*)&target, &addrLen);
+#if IS_ENABLED(CONFIG_NET_IPV6)
 	void *addr = (ai_family == AF_INET6) ? (void*)&net_sin6(&target)->sin6_addr : (void*)&net_sin(&target)->sin_addr;
 	uint16_t port = ntohs((ai_family == AF_INET6) ? net_sin6(&target)->sin6_port : net_sin(&target)->sin_port);
+#else
+	void *addr = (void*)&net_sin(&target)->sin_addr;
+	uint16_t port = ntohs(net_sin(&target)->sin_port);
+#endif
 	net_addr_ntop(ai_family, addr, addrbuf, sizeof(addrbuf));
 	if (stat > 0){
 		shell_print(shell, "RECEIVED from %s:%d:\n%s ",  addrbuf, port, (char*)mxfer_buf);
