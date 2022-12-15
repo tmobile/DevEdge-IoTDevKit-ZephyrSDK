@@ -37,7 +37,8 @@ struct fs_file_t file = {0};
 struct fs_dirent* my_finfo;
 
 #define MAX_BASE_URL_LEN 256
-static char base_url_s[MAX_BASE_URL_LEN] = "https://devkit.devedge.t-mobile.com/bin/latest/";
+#define MAX_BASE_URL_DIR_LEN 32
+static char base_url_s[MAX_BASE_URL_LEN] = "https://devkit.devedge.t-mobile.com/bin/";
 
 static int iface_s = WIFI_ID; // Default iface is wifi
 
@@ -149,19 +150,28 @@ int dfu_download(const struct dfu_file_t *dfu_file, enum dfu_tgts dfu_tgt)
 	return totalbytes;
 }
 
-void generate_mcu_filename(struct dfu_file_t *dfu_files_mcu, char *base, char *version, int slots) {
-    for (int i = 0; i < slots; i++) {
-			/* BIN	*/
-			sprintf(dfu_files_mcu[i].desc, "%s %d/%d", base ,i+1, slots*2);
-			sprintf(dfu_files_mcu[i].lfile, "/tmo/zephyr.slot%d.bin", i);
-			sprintf(dfu_files_mcu[i].rfile, "%s.slot%d.%s.bin",base, i, version);
-			memset(dfu_files_mcu[i].sha1, 0, DFU_SHA1_LEN);
+void generate_mcu_filename(struct dfu_file_t *dfu_files_mcu, char *base, int slots, char *version) 
+{
+    int total_files = (slots*2) + 1;
+    
+    sprintf(dfu_files_mcu[0].desc, "%s 1/%d", base, total_files);
+	sprintf(dfu_files_mcu[0].lfile, "/tmo/zephyr.bin");
+	sprintf(dfu_files_mcu[0].rfile, "%s.%s.bin",base,version);
+	memset(dfu_files_mcu[0].sha1, 0, DFU_SHA1_LEN);
 
-			/* SHA1 */
-			sprintf(dfu_files_mcu[i+slots].desc, "%s %d/%d", base, i + (1+slots), slots*2);
-			sprintf(dfu_files_mcu[i+slots].lfile, "%s.sha1", dfu_files_mcu[i].lfile);
-			sprintf(dfu_files_mcu[i+slots].rfile, "%s.sha1",dfu_files_mcu[i].rfile);
-			memset(dfu_files_mcu[i+slots].sha1, 0, DFU_SHA1_LEN);
+    for (int i = 1; i <= slots; i++) {
+            
+		/* BIN	*/
+		sprintf(dfu_files_mcu[i].desc, "%s %d/%d", base ,i+1, total_files);
+		sprintf(dfu_files_mcu[i].lfile, "/tmo/zephyr.slot%d.bin", i-1);
+		sprintf(dfu_files_mcu[i].rfile, "%s.%s.slot%d.bin",base,version, i-1);
+		memset(dfu_files_mcu[i].sha1, 0, DFU_SHA1_LEN);
+
+		/* SHA1 */
+		sprintf(dfu_files_mcu[i+slots].desc, "%s %d/%d", base,(i+slots)+1, total_files);
+		sprintf(dfu_files_mcu[i+slots].lfile, "%s.sha1", dfu_files_mcu[i].lfile);
+		sprintf(dfu_files_mcu[i+slots].rfile, "%s.sha1",dfu_files_mcu[i].rfile);
+		memset(dfu_files_mcu[i+slots].sha1, 0, DFU_SHA1_LEN);
 	}
 }
 
@@ -169,34 +179,39 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 {
 	mbedtls_sha1_init(&sha1_ctx);
 	const struct dfu_file_t *dfu_files = NULL;
-	struct dfu_file_t dfu_files_mcu_gen[5];
+	struct dfu_file_t dfu_files_mcu_gen[6];
+	char base_url[MAX_BASE_URL_LEN];
 
-	memset(dfu_files_mcu_gen,0,sizeof(struct dfu_file_t) * 5);
+	memset(dfu_files_mcu_gen,0,sizeof(struct dfu_file_t) * 6);
 
 	switch (dfu_tgt) {
 		case DFU_GECKO:
-			if (base == NULL) 
+			if (base == NULL) {
 				dfu_files = dfu_files_mcu;
-			else {
-				generate_mcu_filename(dfu_files_mcu_gen,base,version,2);
+				set_dfu_base_url("https://devkit.devedge.t-mobile.com/bin/latest/");
+			} else {
+				generate_mcu_filename(dfu_files_mcu_gen,base,2, version);
 				dfu_files = dfu_files_mcu_gen;
+				
+				sprintf(base_url, "https://devkit.devedge.t-mobile.com/bin/%s/", version);
+				set_dfu_base_url(base_url);
 			}
 			break;
 
 		case DFU_MODEM:
-			sprintf((char *)dfu_files_modem[0].desc, "%s 1/2",base);
+			sprintf((char *)dfu_files_modem[0].desc, "%s",base);
 			sprintf((char *)dfu_files_modem[0].rfile, "%s.ua",base);
-			sprintf((char *)dfu_files_modem[1].desc, "%s 2/2 ",base);
-			sprintf((char *)dfu_files_modem[1].rfile, "%s.sha1",dfu_files_modem[0].rfile);
 			dfu_files = dfu_files_modem;
+
+			set_dfu_base_url("https://devkit.devedge.t-mobile.com/bin/murata_1sc/");
 			break;
 
 		case DFU_9116W:
-			sprintf((char *)dfu_files_rs9116w[0].desc, "%s 1/2",base);
+			sprintf((char *)dfu_files_rs9116w[0].desc, "%s",base);
 			sprintf((char *)dfu_files_rs9116w[0].rfile, "%s.rps",base);
-			sprintf((char *)dfu_files_rs9116w[1].desc, "%s 2/2",base);
-			sprintf((char *)dfu_files_rs9116w[1].rfile, "%s.sha1",dfu_files_rs9116w[0].rfile);
 			dfu_files = dfu_files_rs9116w;
+
+			set_dfu_base_url("https://devkit.devedge.t-mobile.com/bin/rs9116w/");
 			break;
 
 		default:
