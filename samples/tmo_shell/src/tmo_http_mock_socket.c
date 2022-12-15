@@ -6,8 +6,8 @@
 
 #include <stdio.h>
 #include <strings.h>
-#include <zephyr/zephyr.h>
-#include <net/socket_offload.h>
+#include <zephyr/kernel.h>
+#include <zephyr/net/socket_offload.h>
 #include "sockets_internal.h"
 
 #define FAILURE_POINT 1000000

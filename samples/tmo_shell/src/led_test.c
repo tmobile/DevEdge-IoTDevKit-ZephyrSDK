@@ -5,12 +5,11 @@
  */
 
 #include <stdio.h>
-#include <zephyr.h>
-#include <kernel.h>
-#include <devicetree.h>
-#include <drivers/gpio.h>
-#include <drivers/pwm.h>
-#include <drivers/led.h>
+#include <zephyr/kernel.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/pwm.h>
+#include <zephyr/drivers/led.h>
 
 #include "tmo_shell.h"
 

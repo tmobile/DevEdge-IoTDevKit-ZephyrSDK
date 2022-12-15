@@ -76,8 +76,8 @@
 #include "kermit.h"	/* Kermit symbols and data structures */
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
-#include <zephyr/zephyr.h>
-#include <fs/fs.h>
+#include <zephyr/kernel.h>
+#include <zephyr/fs/fs.h>
 #include <stdlib.h>
 #include "kermit_cmd.h"
 

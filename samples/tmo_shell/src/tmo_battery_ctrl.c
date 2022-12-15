@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <devicetree.h>
+#include <zephyr/devicetree.h>
 
 #if DT_NODE_EXISTS(DT_NODELABEL(bq24250))
 #include "tmo_bq24250.h"

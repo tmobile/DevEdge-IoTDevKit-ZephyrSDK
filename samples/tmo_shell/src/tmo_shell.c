@@ -10,25 +10,25 @@
  * Provides a shell with functionality that may be useful to applications
  */
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 
 #include <stdio.h>
-#include <fs/fs.h>
-#include <zephyr.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/kernel.h>
 #include <fcntl.h>
-#include <net/socket.h>
-#include <shell/shell.h>
-#include <shell/shell_uart.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/shell/shell.h>
+#include <zephyr/shell/shell_uart.h>
 #include <shell/shell_help.h>
-#include <net/http_client.h>
-#include <drivers/led.h>
-#include <sys/reboot.h>
+#include <zephyr/net/http/client.h>
+#include <zephyr/drivers/led.h>
+#include <zephyr/sys/reboot.h>
 #include <rsi_wlan_apis.h>
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 #include "tls_internal.h"
-#include <net/tls_credentials.h>
+#include <zephyr/net/tls_credentials.h>
 #include "ca_certificate.h"
 typedef int sec_tag_t;
 #endif
@@ -37,7 +37,7 @@ typedef int sec_tag_t;
 #include "tmo_modem_edrx.h"
 
 #if CONFIG_MODEM
-#include <drivers/modem/murata-1sc.h>
+#include <zephyr/drivers/modem/murata-1sc.h>
 #include "modem_sms.h"
 #endif
 
@@ -2083,8 +2083,8 @@ int cmd_json_path(const struct shell *shell, size_t argc, char **argv)
 
 /* LITTLEFS */
 #ifdef CONFIG_FILE_SYSTEM_LITTLEFS
-#include <fs/littlefs.h>
-#include <storage/flash_map.h>
+#include <zephyr/fs/littlefs.h>
+#include <zephyr/storage/flash_map.h>
 
 FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(lfs_data);
 static struct fs_mount_t littlefs_mnt = {

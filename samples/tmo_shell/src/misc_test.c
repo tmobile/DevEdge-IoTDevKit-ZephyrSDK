@@ -6,11 +6,10 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <zephyr.h>
-#include <kernel.h>
-#include <drivers/pwm.h>
-#include <shell/shell.h>
-#include <shell/shell_uart.h>
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/pwm.h>
+#include <zephyr/shell/shell.h>
+#include <zephyr/shell/shell_uart.h>
 
 int misc_test()
 {

@@ -5,11 +5,11 @@
  */
 
 #include <stdio.h>
-#include <zephyr.h>
-#include <net/socket.h>
-#include <net/wifi_mgmt.h>
-#include <net/net_event.h>
-#include <shell/shell.h>
+#include <zephyr/kernel.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/net/wifi_mgmt.h>
+#include <zephyr/net/net_event.h>
+#include <zephyr/shell/shell.h>
 #include <shell/shell_help.h>
 
 #include "tmo_shell.h"

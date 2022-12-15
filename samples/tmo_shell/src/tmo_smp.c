@@ -10,15 +10,15 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
-#include <init.h>
-#include <zephyr.h>
+#include <zephyr/init.h>
+#include <zephyr/kernel.h>
 #include <zephyr/types.h>
-#include <sys/byteorder.h>
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/conn.h>
-#include <bluetooth/uuid.h>
-#include <bluetooth/gatt.h>
-#include <shell/shell.h>
+#include <zephyr/sys/byteorder.h>
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+#include <zephyr/shell/shell.h>
 
 bool smp_enabled = false;
 

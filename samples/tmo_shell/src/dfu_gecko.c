@@ -10,14 +10,14 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <zephyr.h>
+#include <zephyr/kernel.h>
 #include <errno.h>
-#include <device.h>
+#include <zephyr/device.h>
 #include <soc.h>
-#include <drivers/flash.h>
-#include <drivers/gpio.h>
-#include <sys/reboot.h>
-#include <fs/fs.h>
+#include <zephyr/drivers/flash.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/reboot.h>
+#include <zephyr/fs/fs.h>
 #include <mbedtls/sha1.h>
 
 #include "tmo_dfu_download.h"

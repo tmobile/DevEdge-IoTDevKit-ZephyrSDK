@@ -6,10 +6,10 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <fs/fs.h>
-#include <shell/shell.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/shell/shell.h>
 #include <mbedtls/sha1.h>
-#include <sys/crc.h>
+#include <zephyr/sys/crc.h>
 
 #include "tmo_file.h"
 #include "dfu_murata_1sc.h"

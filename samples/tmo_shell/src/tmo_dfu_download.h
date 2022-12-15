@@ -11,7 +11,7 @@
 #include "dfu_rs9116w.h"
 #include "dfu_gecko.h"
 #include "tmo_shell.h"
-#include <shell/shell.h>
+#include <zephyr/shell/shell.h>
 
 enum dfu_tgts {
 	DFU_GECKO = 0,
