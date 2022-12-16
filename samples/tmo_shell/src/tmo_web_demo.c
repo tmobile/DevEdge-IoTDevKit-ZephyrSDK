@@ -115,7 +115,7 @@ int get_cell_strength(int *val)
 	if (iface == NULL) {
 		return -EINVAL;
 	}
-	if (strcmp(iface->if_dev->dev->name, "murata,1sc") != 0) {
+	if (strstr(iface->if_dev->dev->name, "murata")) {
 		return -EINVAL;
 	}
 	int sd = zsock_socket_ext(AF_INET, SOCK_STREAM, IPPROTO_TCP, iface);

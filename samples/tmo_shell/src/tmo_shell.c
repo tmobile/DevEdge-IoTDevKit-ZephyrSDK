@@ -771,9 +771,9 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 		hints.ai_socktype = SOCK_DGRAM;
 		int devid = 0;
 		struct net_if *iface = socks[sock_idx].dev;
-		if (strcmp(iface->if_dev->dev->name, "murata,1sc") == 0) {
+		if (strstr(iface->if_dev->dev->name, "murata")) {
 			devid = MODEM_ID;
-		} else if (strcmp(iface->if_dev->dev->name, "RS9116W_0") == 0) {
+		} else if (strstr(iface->if_dev->dev->name, "9116")) {
 			devid = WIFI_ID;
 		} else {
 			shell_error(shell, "Unknown interface: %s", iface->if_dev->dev->name);
@@ -1228,7 +1228,7 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
 	}
-	if (strcmp(iface->if_dev->dev->name, "murata,1sc") != 0) {
+	if (strstr(iface->if_dev->dev->name, "murata")) {
 		shell_error(shell, "dev - %s Not Supported; only Murata 1SC is supported", iface->if_dev->dev->name);
 		return -EINVAL;
 	}
