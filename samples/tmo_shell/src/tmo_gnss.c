@@ -272,11 +272,11 @@ void gnss_thread(void *a, void *b, void *c)
 	}
 }
 
-#define GNSS_GPIO_NAME "GPIO_F"
+#define GNSS_GPIO_DEV DEVICE_DT_GET(DT_NODELABEL(gpiof))
 static const struct device *cxd5605_dev;
 int cxd5605_init(void)
 {
-	cxd5605_dev = device_get_binding(GNSS_GPIO_NAME);
+	cxd5605_dev = GNSS_GPIO_DEV;
 
 	if (!cxd5605_dev) {
 		printf("CXD5605 gpio port was not found!\n");

@@ -47,11 +47,11 @@ int cmd_pmsysstandby(const struct shell *shell, int argc, char** argv)
 int cmd_pmsysoff(const struct shell *shell, int argc, char** argv)
 {
 	#if CONFIG_PM_DEVICE
-	const struct device *dev = device_get_binding("RS9116W_0");
+	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(rs9116w));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
-	dev = device_get_binding("CXD5605");
+	dev = DEVICE_DT_GET(DT_NODELABEL(sonycxd5605));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
-	dev = device_get_binding("murata,1sc");
+	dev = DEVICE_DT_GET(DT_NODELABEL(murata_1sc));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
 	dev = PWMLEDS;
 	led_off(dev, 0);
@@ -63,15 +63,14 @@ int cmd_pmsysoff(const struct shell *shell, int argc, char** argv)
 	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SOFT_OFF, 1, 0});    
 	return 0;
 }
-
 int cmd_pmsysfulloff(const struct shell *shell, int argc, char** argv)
 {
 	#if CONFIG_PM_DEVICE
-	const struct device *dev = device_get_binding("RS9116W_0");
+	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(rs9116w));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
-	dev = device_get_binding("CXD5605");
+	dev = DEVICE_DT_GET(DT_NODELABEL(sonycxd5605));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
-	dev = device_get_binding("murata,1sc");
+	dev = DEVICE_DT_GET(DT_NODELABEL(murata_1sc));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
 	dev = PWMLEDS;
 	led_off(dev, 0);

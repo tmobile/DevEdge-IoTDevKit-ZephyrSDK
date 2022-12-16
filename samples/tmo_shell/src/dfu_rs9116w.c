@@ -137,7 +137,7 @@ int32_t dfu_wifi_write_image(void)
 		// return -ENODEV;
 	}
 
-	rs_dev = device_get_binding(RS9116_GPIO_NAME);
+	rs_dev = DEVICE_DT_GET(DT_NODELABEL(gpioa));
 	if (!rs_dev) {
 		printf("RS9116 gpio port was not found!\n");
 		return -ENODEV;
