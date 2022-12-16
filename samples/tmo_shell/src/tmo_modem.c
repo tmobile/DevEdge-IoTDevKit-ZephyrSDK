@@ -88,7 +88,7 @@ static int tmo_modem_get_sock(int idx) {
 	if (iface == NULL) {
 		return -EINVAL;
 	}
-	if (strstr(iface->if_dev->dev->name, "murata")) {
+	if (!strstr(iface->if_dev->dev->name, "murata")) {
 		return -EINVAL;
 	}
 	sd = zsock_socket_ext(AF_INET, SOCK_STREAM, IPPROTO_TCP, iface);
