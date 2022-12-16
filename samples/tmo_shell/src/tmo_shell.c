@@ -90,6 +90,8 @@ const struct device *gecko_flash_dev = NULL;
 #error Unsupported flash driver
 #endif
 
+#define GECKO_FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, silabs_gecko_flash_controller))
+
 extern const struct device *ext_flash_dev;
 extern const struct device *gecko_flash_dev;
 extern int get_gecko_fw_version(void);
@@ -2359,13 +2361,13 @@ void tmo_shell_main (void)
 		printf("SPI NOR external flash driver %s ready!\n", FLASH_DEVICE);
 	}
 
-	gecko_flash_dev = device_get_binding("FLASH_CTRL");
-	if (!gecko_flash_dev) {
-		printf("\nFLASH_CTRL: Device driver FLASH_CTRL not found\n");
-	}
-	else {
-		printf("Gecko flash driver FLASH_CTRL ready!\n");
-	}
+	gecko_flash_dev = device_get_binding(GECKO_FLASH_DEVICE);
+        if (!gecko_flash_dev) {
+                printf("\nGECKO_FLASH_DEVICE : Device driver GECKO_FLASH_DEVICE not found\n");
+        }
+        else {
+                printf("Gecko flash driver GECKO_FLASH_DEVICE ready!\n");
+        }
 
 	// mount the flash file system
 	mountfs();
