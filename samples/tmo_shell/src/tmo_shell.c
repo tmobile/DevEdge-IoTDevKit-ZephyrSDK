@@ -1230,7 +1230,7 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
 	}
-	if (strstr(iface->if_dev->dev->name, "murata")) {
+	if (!strstr(iface->if_dev->dev->name, "murata")) {
 		shell_error(shell, "dev - %s Not Supported; only Murata 1SC is supported", iface->if_dev->dev->name);
 		return -EINVAL;
 	}
