@@ -10,25 +10,25 @@
  * Provides a shell with functionality that may be useful to applications
  */
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 
 #include <stdio.h>
-#include <fs/fs.h>
-#include <zephyr.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/kernel.h>
 #include <fcntl.h>
-#include <net/socket.h>
-#include <shell/shell.h>
-#include <shell/shell_uart.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/shell/shell.h>
+#include <zephyr/shell/shell_uart.h>
 #include <shell/shell_help.h>
-#include <net/http_client.h>
-#include <drivers/led.h>
-#include <sys/reboot.h>
+#include <zephyr/net/http/client.h>
+#include <zephyr/drivers/led.h>
+#include <zephyr/sys/reboot.h>
 #include <rsi_wlan_apis.h>
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 #include "tls_internal.h"
-#include <net/tls_credentials.h>
+#include <zephyr/net/tls_credentials.h>
 #include "ca_certificate.h"
 typedef int sec_tag_t;
 #endif
@@ -37,7 +37,7 @@ typedef int sec_tag_t;
 #include "tmo_modem_edrx.h"
 
 #if CONFIG_MODEM
-#include <drivers/modem/murata-1sc.h>
+#include <zephyr/drivers/modem/murata-1sc.h>
 #include "modem_sms.h"
 #endif
 
@@ -53,6 +53,7 @@ typedef int sec_tag_t;
 #include "tmo_battery_ctrl.h"
 #include "tmo_shell.h"
 #include "tmo_sntp.h"
+#include "tmo_modem.h"
 
 #if CONFIG_TMO_SHELL_BUILD_EK
 #include "ek18/src/kermit_cmd.h"
@@ -76,18 +77,20 @@ const struct device *gecko_flash_dev = NULL;
 
 #if (CONFIG_SPI_NOR - 0) || \
 	DT_NODE_HAS_STATUS(DT_INST(0, jedec_spi_nor), okay)
-#define FLASH_DEVICE DT_LABEL(DT_INST(0, jedec_spi_nor))
+#define FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, jedec_spi_nor))
 #define FLASH_NAME "JEDEC SPI-NOR"
 #elif (CONFIG_NORDIC_QSPI_NOR - 0) || \
 	DT_NODE_HAS_STATUS(DT_INST(0, nordic_qspi_nor), okay)
-#define FLASH_DEVICE DT_LABEL(DT_INST(0, nordic_qspi_nor))
+#define FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, nordic_qspi_nor))
 #define FLASH_NAME "JEDEC QSPI-NOR"
 #elif DT_NODE_HAS_STATUS(DT_INST(0, st_stm32_qspi_nor), okay)
-#define FLASH_DEVICE DT_LABEL(DT_INST(0, st_stm32_qspi_nor))
+#define FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, st_stm32_qspi_nor))
 #define FLASH_NAME "JEDEC QSPI-NOR"
 #else
 #error Unsupported flash driver
 #endif
+
+#define GECKO_FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, silabs_gecko_flash_controller))
 
 extern const struct device *ext_flash_dev;
 extern const struct device *gecko_flash_dev;
@@ -123,7 +126,7 @@ int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv);
 int tmo_set_modem(enum murata_1sc_io_ctl cmd, union params_cmd* params, int sd)
 {
 	int res = -1;
-	res = fcntl(sd, cmd, params);
+	res = fcntl_ptr(sd, cmd, params);
 	return res;
 }
 
@@ -577,9 +580,9 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 			// SD: iface=%d proto=<TLS/TCP/UDP> <CONNECTED> <BOUND>
 		if (socks[sock_idx].flags & BIT(sock_open)) {
 			struct net_if *iface = socks[sock_idx].dev;
-			if (strcmp(iface->if_dev->dev->name, "murata,1sc") == 0) {
+			if (strncmp(iface->if_dev->dev->name, "murata", 6) == 0) {
 				devid = MODEM_ID;
-			} else if (strcmp(iface->if_dev->dev->name, "RS9116W_0") == 0) {
+			} else if (strncmp(iface->if_dev->dev->name, "rs9116", 6) == 0) {
 				devid = WIFI_ID;
 			} else {
 				shell_error(shell, "Unknown interface: %s", iface->if_dev->dev->name);
@@ -632,11 +635,14 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 		}
 		uint16_t port = (uint16_t)strtol(port_st, NULL, 10);
 		if (port) {
-			if (target.sa_family == AF_INET6) {
-				net_sin6(&target)->sin6_port = htons(port);
-			} else {
-				net_sin(&target)->sin_port = htons(port);
+			if (target.sa_family == AF_INET) {
+				net_sin(&target)->sin_port = htons(port);	
 			}
+#if IS_ENABLED(CONFIG_NET_IPV6)
+			else {
+				net_sin6(&target)->sin6_port = htons(port);	
+			}
+#endif
 		}
 		ret = zsock_connect(sd, &target, 
 				target.sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) 
@@ -752,10 +758,13 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 		if (ai_family == AF_INET) {
 			net_sin(&target)->sin_family = AF_INET;
 			net_sin(&target)->sin_port = htons(port);
-		} else {
+		}
+#if IS_ENABLED(CONFIG_NET_IPV6)
+		else {
 			net_sin6(&target)->sin6_family = AF_INET6;
 			net_sin6(&target)->sin6_port = htons(port);
 		}
+#endif
 	} else {
 		static struct addrinfo hints;
 		struct zsock_addrinfo *res;
@@ -764,9 +773,9 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 		hints.ai_socktype = SOCK_DGRAM;
 		int devid = 0;
 		struct net_if *iface = socks[sock_idx].dev;
-		if (strcmp(iface->if_dev->dev->name, "murata,1sc") == 0) {
+		if (strstr(iface->if_dev->dev->name, "murata")) {
 			devid = MODEM_ID;
-		} else if (strcmp(iface->if_dev->dev->name, "RS9116W_0") == 0) {
+		} else if (strstr(iface->if_dev->dev->name, "9116")) {
 			devid = WIFI_ID;
 		} else {
 			shell_error(shell, "Unknown interface: %s", iface->if_dev->dev->name);
@@ -1013,8 +1022,13 @@ int sock_rcvfrom(const struct shell *shell, size_t argc, char **argv)
 	memset(mxfer_buf, 0, XFER_SIZE);
 	char addrbuf[NET_IPV6_ADDR_LEN];
 	stat = zsock_recvfrom(sd, mxfer_buf, XFER_SIZE, ZSOCK_MSG_DONTWAIT, (struct sockaddr*)&target, &addrLen);
+#if IS_ENABLED(CONFIG_NET_IPV6)
 	void *addr = (ai_family == AF_INET6) ? (void*)&net_sin6(&target)->sin6_addr : (void*)&net_sin(&target)->sin_addr;
 	uint16_t port = ntohs((ai_family == AF_INET6) ? net_sin6(&target)->sin6_port : net_sin(&target)->sin_port);
+#else
+	void *addr = (void*)&net_sin(&target)->sin_addr;
+	uint16_t port = ntohs(net_sin(&target)->sin_port);
+#endif
 	net_addr_ntop(ai_family, addr, addrbuf, sizeof(addrbuf));
 	if (stat > 0){
 		shell_print(shell, "RECEIVED from %s:%d:\n%s ",  addrbuf, port, (char*)mxfer_buf);
@@ -1090,7 +1104,7 @@ int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 	// shell_print(shell, "About to call fcntl to send sms, phone: %s, msg: %s\n", argv[2], argv[3]);
 	snprintf(sms.phone, SMS_PHONE_MAX_LEN, "%s", argv[2]);
 	snprintf(sms.msg, CONFIG_MODEM_SMS_OUT_MSG_MAX_LEN + 1, "%s", argv[3]);
-	ret = fcntl(sock_idx, SMS_SEND, &sms);
+	ret = fcntl_ptr(sock_idx, SMS_SEND, &sms);
 	// printf("returned from fcntl, ret = %d\n", ret);
 	return ret;
 }
@@ -1121,7 +1135,7 @@ int sock_recvsms(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	sms.timeout = K_SECONDS(wait);
-	ret = fcntl(sock_idx, SMS_RECV, &sms);
+	ret = fcntl_ptr(sock_idx, SMS_RECV, &sms);
 	if (ret > 0)
 		shell_print(shell, "Received SMS from %s at %s: %s\n", sms.phone, sms.time, sms.msg);
 	else
@@ -1216,7 +1230,7 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
 	}
-	if (strcmp(iface->if_dev->dev->name, "murata,1sc") != 0) {
+	if (!strstr(iface->if_dev->dev->name, "murata")) {
 		shell_error(shell, "dev - %s Not Supported; only Murata 1SC is supported", iface->if_dev->dev->name);
 		return -EINVAL;
 	}
@@ -1233,7 +1247,7 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 	} else {
 		strcpy(cmd_buf, argv[2]);
 		strupper(cmd_buf);
-		int res = fcntl(sd, GET_ATCMD_RESP, cmd_buf);
+		int res = fcntl_ptr(sd, GET_ATCMD_RESP, cmd_buf);
 		if (res < 0) {
 			shell_error(shell, "request: %s failed, error: %d\n", argv[2], res);
 		} else if (cmd_buf[0] == 0) {
@@ -1969,7 +1983,6 @@ int cmd_mfg_test(const struct shell *shell, size_t argc, char **argv)
 {
 	int rc = 0;
 	shell_print(shell, "Run mfg tests...");
-
 	rc |= buzzer_test();
 	k_sleep(K_SECONDS(1));
 	rc |= led_test();
@@ -2072,14 +2085,14 @@ int cmd_json_path(const struct shell *shell, size_t argc, char **argv)
 
 /* LITTLEFS */
 #ifdef CONFIG_FILE_SYSTEM_LITTLEFS
-#include <fs/littlefs.h>
-#include <storage/flash_map.h>
+#include <zephyr/fs/littlefs.h>
+#include <zephyr/storage/flash_map.h>
 
 FS_LITTLEFS_DECLARE_DEFAULT_CONFIG(lfs_data);
 static struct fs_mount_t littlefs_mnt = {
 	.type = FS_LITTLEFS,
 	.fs_data = &lfs_data,
-	.storage_dev = (void *)FLASH_AREA_ID(storage),
+	.storage_dev = (void *)FIXED_PARTITION_ID(storage_partition1),
 };
 #endif
 
@@ -2217,15 +2230,15 @@ int cmd_tmo_cert_modem_load(const struct shell* shell, int argc, char **argv)
 		return EIO;
 	}
 
-	if (fcntl(sock, CHECK_CERT, name) == 0) {
+	if (fcntl_ptr(sock, CHECK_CERT, name) == 0) {
 		if (!force) {
 			shell_error(shell, "Cert already loaded!");
 			zsock_close(sock);
 			return EIO;
 		}
-		fcntl(sock, DEL_CERT, name);
+		fcntl_ptr(sock, DEL_CERT, name);
 	}
-	fcntl(sock, STORE_CERT, &cparams);
+	fcntl_ptr(sock, STORE_CERT, &cparams);
 	zsock_close(sock);
 
 	return 0;
@@ -2348,14 +2361,13 @@ void tmo_shell_main (void)
 		printf("SPI NOR external flash driver %s ready!\n", FLASH_DEVICE);
 	}
 
-	gecko_flash_dev = device_get_binding("FLASH_CTRL");
-	if (!gecko_flash_dev) {
-		printf("\nFLASH_CTRL: Device driver FLASH_CTRL not found\n");
-		exit(-1);
-	}
-	else {
-		printf("Gecko flash driver FLASH_CTRL ready!\n");
-	}
+	gecko_flash_dev = device_get_binding(GECKO_FLASH_DEVICE);
+        if (!gecko_flash_dev) {
+                printf("\nGECKO_FLASH_DEVICE : Device driver GECKO_FLASH_DEVICE not found\n");
+        }
+        else {
+                printf("Gecko flash driver GECKO_FLASH_DEVICE ready!\n");
+        }
 
 	// mount the flash file system
 	mountfs();

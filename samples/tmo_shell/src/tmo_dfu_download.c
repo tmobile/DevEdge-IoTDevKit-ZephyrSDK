@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(tmo_dfu_download, LOG_LEVEL_DBG);
 
 #include <stdio.h>
-#include <fs/fs.h>
-#include <net/net_ip.h>
-#include <net/socket.h>
-#include <net/tls_credentials.h>
-#include <net/http_client.h>
-#include <net/wifi_mgmt.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/net/tls_credentials.h>
+#include <zephyr/net/http/client.h>
+#include <zephyr/net/wifi_mgmt.h>
 #include <mbedtls/sha1.h>
 
 #include "ca_certificate.h"
@@ -212,7 +212,6 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 
 			sprintf(base_url_s,"%srs9116w/",user_base_url_s);
 
-			break;
 
 		default:
 			break;

@@ -1,6 +1,6 @@
 #include <ctype.h>
 #include <zephyr/posix/time.h>
-#include <net/socket.h>
+#include <zephyr/net/socket.h>
 #include <zephyr/sys/timeutil.h>
 #include "tmo_shell.h"
 #include "tmo_sntp.h"

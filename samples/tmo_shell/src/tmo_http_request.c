@@ -4,17 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(tmo_http_request, LOG_LEVEL_DBG);
 
 #include <stdio.h>
 #include <strings.h>
-#include <net/net_ip.h>
-#include <net/socket.h>
-#include <net/tls_credentials.h>
-#include <net/http_client.h>
-#include <net/wifi_mgmt.h>
-#include <fs/fs.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/net/tls_credentials.h>
+#include <zephyr/net/http/client.h>
+#include <zephyr/net/wifi_mgmt.h>
+#include <zephyr/fs/fs.h>
 
 #include "ca_certificate.h"
 #include "tmo_web_demo.h"

@@ -7,14 +7,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zephyr.h>
+#include <zephyr/kernel.h>
 #include <fcntl.h>
-#include <drivers/sensor.h>
-#include <net/net_ip.h>
-#include <net/socket.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/net/net_ip.h>
+#include <zephyr/net/socket.h>
 #if CONFIG_MODEM
 #include "modem_sms.h"
-#include <drivers/modem/murata-1sc.h>
+#include <zephyr/drivers/modem/murata-1sc.h>
 #endif
 
 #include "tmo_adc.h"
@@ -115,7 +115,7 @@ int get_cell_strength(int *val)
 	if (iface == NULL) {
 		return -EINVAL;
 	}
-	if (strcmp(iface->if_dev->dev->name, "murata,1sc") != 0) {
+	if (!strstr(iface->if_dev->dev->name, "murata")) {
 		return -EINVAL;
 	}
 	int sd = zsock_socket_ext(AF_INET, SOCK_STREAM, IPPROTO_TCP, iface);

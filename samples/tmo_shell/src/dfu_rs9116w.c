@@ -11,10 +11,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <zephyr.h>
-#include <sys/reboot.h>
-#include <fs/fs.h>
-#include <drivers/gpio.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/reboot.h>
+#include <zephyr/fs/fs.h>
+#include <zephyr/drivers/gpio.h>
 #include <rsi_wlan_apis.h>
 #include <rsi_common_apis.h>
 
@@ -137,7 +137,7 @@ int32_t dfu_wifi_write_image(void)
 		// return -ENODEV;
 	}
 
-	rs_dev = device_get_binding(RS9116_GPIO_NAME);
+	rs_dev = DEVICE_DT_GET(DT_NODELABEL(gpioa));
 	if (!rs_dev) {
 		printf("RS9116 gpio port was not found!\n");
 		return -ENODEV;

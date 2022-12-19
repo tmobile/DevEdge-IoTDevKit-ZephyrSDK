@@ -7,7 +7,7 @@
  *
  */
 #include <stdio.h>
-#include <kernel.h>
+#include <zephyr/kernel.h>
 #include "em_device.h"
 #include "em_chip.h"
 #include "em_cmu.h"

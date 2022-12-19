@@ -1,18 +1,18 @@
 #ifndef TMO_SHELL_INCLUDE_ONCE
 #define TMO_SHELL_INCLUDE_ONCE
-#include <net/sntp.h>
-#include <net/socketutils.h>
+#include <zephyr/net/sntp.h>
+#include <zephyr/net/socketutils.h>
 #ifdef CONFIG_POSIX_API
 #include <arpa/inet.h>
 #endif
 
-#include <net/net_ip.h>
+#include <zephyr/net/net_ip.h>
 #include <time.h>
-#include <types.h>
+#include <zephyr/types.h>
 #include <em_cmu.h>
 #include <em_rtcc.h>
 #include <zephyr/drivers/counter.h>
-#include <shell/shell.h>
+#include <zephyr/shell/shell.h>
 
 #define SNTP_PORT 123
 #define NTP_TIMESTAMP_DELTA 2208988800ull

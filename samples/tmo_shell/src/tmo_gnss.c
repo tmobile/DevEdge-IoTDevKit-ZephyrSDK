@@ -7,21 +7,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <init.h>
-#include <drivers/i2c.h>
-#include <drivers/gpio.h>
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/conn.h>
-#include <bluetooth/uuid.h>
-#include <bluetooth/gatt.h>
-#include <zephyr.h>
-#include <drivers/sensor.h>
-#include <drivers/sensor/cxd5605.h>
-#include <drivers/flash.h>
-#include <device.h>
-#include <devicetree.h>
-#include <drivers/sensor/gnss.h>
-#include <sys/byteorder.h>
+#include <zephyr/init.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/bluetooth/gatt.h>
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/drivers/sensor/cxd5605.h>
+#include <zephyr/drivers/flash.h>
+#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/sensor/gnss.h>
+#include <zephyr/sys/byteorder.h>
 
 #define TMO_GNSS
 #include "tmo_gnss.h"
@@ -272,11 +272,11 @@ void gnss_thread(void *a, void *b, void *c)
 	}
 }
 
-#define GNSS_GPIO_NAME "GPIO_F"
+#define GNSS_GPIO_DEV DEVICE_DT_GET(DT_NODELABEL(gpiof))
 static const struct device *cxd5605_dev;
 int cxd5605_init(void)
 {
-	cxd5605_dev = device_get_binding(GNSS_GPIO_NAME);
+	cxd5605_dev = GNSS_GPIO_DEV;
 
 	if (!cxd5605_dev) {
 		printf("CXD5605 gpio port was not found!\n");

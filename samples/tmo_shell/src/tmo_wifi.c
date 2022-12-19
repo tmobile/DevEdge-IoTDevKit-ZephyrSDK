@@ -5,11 +5,11 @@
  */
 
 #include <stdio.h>
-#include <zephyr.h>
-#include <net/socket.h>
-#include <net/wifi_mgmt.h>
-#include <net/net_event.h>
-#include <shell/shell.h>
+#include <zephyr/kernel.h>
+#include <zephyr/net/socket.h>
+#include <zephyr/net/wifi_mgmt.h>
+#include <zephyr/net/net_event.h>
+#include <zephyr/shell/shell.h>
 #include <shell/shell_help.h>
 
 #include "tmo_shell.h"
@@ -288,7 +288,7 @@ int cmd_wifi_connect(const struct shell *shell, size_t argc,
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
-	} else if (!strstr(iface->if_dev->dev->name,"RS9116")) { //Stop-Gap solution
+	} else if (!strstr(iface->if_dev->dev->name, "9116")) { //Stop-Gap solution
 		shell_error(shell, "Operation not supported on non-WiFi interfaces");
 		return -EINVAL;
 	}
@@ -327,7 +327,7 @@ int cmd_wifi_disconnect(const struct shell *shell, size_t argc,
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
-	} else if (!strstr(iface->if_dev->dev->name,"RS9116")) { //Stop-Gap solution
+	} else if (!strstr(iface->if_dev->dev->name,"9116")) { //Stop-Gap solution
 		shell_error(shell, "Operation not supported on non-WiFi interfaces");
 		return -EINVAL;
 	}
@@ -368,7 +368,7 @@ int cmd_wifi_scan(const struct shell *shell, size_t argc, char *argv[])
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
-	} else if (!strstr(iface->if_dev->dev->name,"RS9116")) { //Stop-Gap solution
+	} else if (!strstr(iface->if_dev->dev->name,"9116")) { //Stop-Gap solution
 		shell_error(shell, "Operation not supported on non-WiFi interfaces");
 		return -EINVAL;
 	}
@@ -397,7 +397,7 @@ int cmd_wifi_status(const struct shell *shell, size_t argc, char *argv[])
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
-	} else if (!strstr(iface->if_dev->dev->name,"RS9116")) { //Stop-Gap solution
+	} else if (!strstr(iface->if_dev->dev->name,"9116")) { //Stop-Gap solution
 		shell_error(shell, "Operation not supported on non-WiFi interfaces");
 		return -EINVAL;
 	}
@@ -430,7 +430,7 @@ int tmo_wifi_connect()
 		if (iface == NULL) {
 			printf("Interface %d not found", 2);
 			return -EINVAL;
-		} else if (!strstr(iface->if_dev->dev->name,"RS9116")) { //Stop-Gap solution
+		} else if (!strstr(iface->if_dev->dev->name,"9116")) { //Stop-Gap solution
 			printf("Operation not supported on non-WiFi interfaces");
 			return -EINVAL;
 		}

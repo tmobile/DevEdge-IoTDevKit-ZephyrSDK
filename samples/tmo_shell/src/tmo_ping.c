@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <zephyr/zephyr.h>
+#include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/net/ping.h>
-#include <net/socket.h>
+#include <zephyr/net/socket.h>
 #include "tmo_shell.h"
 #include "tmo_ping.h"
 
