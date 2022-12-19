@@ -151,7 +151,7 @@ void gnss_thread(void *a, void *b, void *c)
 
 	//printf("Starting cxd5605 thread\n");
 
-	cxd5605 = DEVICE_DT_GET_ANY(sony_cxd5605);
+	cxd5605 = DEVICE_DT_GET(DT_NODELABEL(sonycxd5605));
 
 	if (!cxd5605) {
 		printf("cxd5605 driver error\n");

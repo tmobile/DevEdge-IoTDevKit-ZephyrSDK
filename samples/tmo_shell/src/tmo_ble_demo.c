@@ -882,7 +882,11 @@ static int tmo_ble_demo_init(const struct device *unused)
 	// bt_conn_cb_register(&conn_callbacks);
 	acc_sensor = DEVICE_DT_GET(DT_NODELABEL(lis2dw12));
 	temp_sensor = DEVICE_DT_GET(DT_NODELABEL(as6212));
+#if CONFIG_LPS22HH
 	press_sensor = DEVICE_DT_GET(DT_NODELABEL(lps22hh));
+#else
+	press_sensor = NULL;
+#endif
 	ir_sensor = light_sensor = DEVICE_DT_GET(DT_NODELABEL(tsl2540));  // idx = 17, idx = 18
 
 	if (press_sensor) {
