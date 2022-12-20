@@ -37,8 +37,8 @@ struct fs_file_t file = {0};
 struct fs_dirent* my_finfo;
 
 #define MAX_BASE_URL_LEN 256
-#define MAX_BASE_URL_DIR_LEN 32
-static char base_url_s[MAX_BASE_URL_LEN] = "https://devkit.devedge.t-mobile.com/bin/";
+static char base_url_s[MAX_BASE_URL_LEN];
+static char user_base_url_s[MAX_BASE_URL_LEN] = "https://devkit.devedge.t-mobile.com/bin/";
 
 static int iface_s = WIFI_ID; // Default iface is wifi
 
@@ -180,7 +180,6 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 	mbedtls_sha1_init(&sha1_ctx);
 	const struct dfu_file_t *dfu_files = NULL;
 	struct dfu_file_t dfu_files_mcu_gen[6];
-	char base_url[MAX_BASE_URL_LEN];
 
 	memset(dfu_files_mcu_gen,0,sizeof(struct dfu_file_t) * 6);
 
@@ -188,13 +187,13 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 		case DFU_GECKO:
 			if (base == NULL) {
 				dfu_files = dfu_files_mcu;
-				set_dfu_base_url("https://devkit.devedge.t-mobile.com/bin/latest/");
+
+				sprintf(base_url_s,"%slatest/",user_base_url_s);
 			} else {
 				generate_mcu_filename(dfu_files_mcu_gen,base,2, version);
 				dfu_files = dfu_files_mcu_gen;
 				
-				sprintf(base_url, "https://devkit.devedge.t-mobile.com/bin/%s/", version);
-				set_dfu_base_url(base_url);
+				sprintf(base_url_s,"%s%s/",user_base_url_s, version);
 			}
 			break;
 
@@ -203,7 +202,7 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 			sprintf((char *)dfu_files_modem[0].rfile, "%s.ua",base);
 			dfu_files = dfu_files_modem;
 
-			set_dfu_base_url("https://devkit.devedge.t-mobile.com/bin/murata_1sc/");
+			sprintf(base_url_s,"%smurata_1sc/",user_base_url_s);
 			break;
 
 		case DFU_9116W:
@@ -211,8 +210,8 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 			sprintf((char *)dfu_files_rs9116w[0].rfile, "%s.rps",base);
 			dfu_files = dfu_files_rs9116w;
 
-			set_dfu_base_url("https://devkit.devedge.t-mobile.com/bin/rs9116w/");
-			break;
+			sprintf(base_url_s,"%srs9116w/",user_base_url_s);
+
 
 		default:
 			break;
@@ -236,15 +235,15 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 
 int set_dfu_base_url(char *base_url)
 {
-	memset(base_url_s, 0, sizeof(base_url_s));
-	strncpy(base_url_s, base_url, sizeof(base_url_s) - 1);
+	memset(user_base_url_s, 0, sizeof(user_base_url_s));
+	strncpy(user_base_url_s, base_url, sizeof(user_base_url_s) - 1);
 
 	return 0;
 }
 
 const char *get_dfu_base_url()
 {
-	return base_url_s;
+	return user_base_url_s;
 }
 
 int set_dfu_iface_type(int iface)
