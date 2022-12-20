@@ -18,7 +18,7 @@ standard output, performing at 90 μA in high-resolution mode and below 1 μA in
 The device has a dynamic user-selectable full-scale acceleration range of ±2/±4/±8/±16 g and is
 capable of measuring accelerations with output data rates from 1.6 Hz to 1600 Hz. The LIS2DW12 can
 be configured to generate interrupt signals by using hardware recognition of free-fall events, 6D
-orientation, tap and double-tap sensing, activity or inactivity, and wake-up eventsi.
+orientation, tap and double-tap sensing, activity or inactivity, and wake-up events.
 
 Requirements
 ************
