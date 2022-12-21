@@ -99,6 +99,7 @@ extern uint32_t getData;
 extern int buzzer_test();
 extern int led_test();
 extern int misc_test();
+extern int fw_test();
 
 const struct shell *shell = NULL;
 
@@ -1979,23 +1980,66 @@ int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv)
 	return tmo_profile_dtls(shell, argv[1], (int) strtol(argv[2], NULL, 10));
 }
 
+int golden_check()
+{
+	char cmd_buf[64];
+	struct net_if *iface = net_if_get_by_index(MODEM_ID);
+	int sd = zsock_socket_ext(AF_INET, SOCK_STREAM, IPPROTO_TCP, iface);
+	strcpy(cmd_buf, "golden");
+	strupper(cmd_buf);
+	int res = fcntl(sd, GET_ATCMD_RESP, cmd_buf);
+	zsock_close(sd);
+	if (res < 0) {
+		printf("Modem firmware type detect failed (%d)\n", res);
+		return 1;
+	} else {
+		printf("Modem firmware type %s\n", cmd_buf);
+		return strcmp(cmd_buf, "GOLDEN");
+	}
+}
+
+bool light_on;
+
+
+static void led_blnk_tmr_f(struct k_timer *timer_id)
+{
+	if (light_on) {
+		led_off(device_get_binding("pwmleds"), 0);
+	} else {
+		led_on(device_get_binding("pwmleds"), 0);
+	}
+	light_on = !light_on;
+}
+
+K_TIMER_DEFINE(led_blink_timer, led_blnk_tmr_f, NULL);
+
 int cmd_mfg_test(const struct shell *shell, size_t argc, char **argv)
 {
+	k_timer_stop(&led_blink_timer);
 	int rc = 0;
 	shell_print(shell, "Run mfg tests...");
 	rc |= buzzer_test();
 	k_sleep(K_SECONDS(1));
 	rc |= led_test();
 	k_sleep(K_SECONDS(2));
-	misc_test();
+	rc |=misc_test();
+#if CONFIG_TMO_TEST_MFG_CHECK_GOLDEN
+	rc |= golden_check();
+#endif /* CONFIG_TMO_TEST_MFG_CHECK_GOLDEN */
 
 	const struct device * pwm_dev = device_get_binding("pwmleds");
-	if (rc == 0) {
+
+	if (rc == 0 && !fw_test()) {
 		led_on(pwm_dev, 2); // Green LED
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_INFO, "TESTS PASSED\n");
+	} else if (rc == 0) {
+		led_on(pwm_dev, 3); // Blue LED
+		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_WARNING, "FIRMWARE OUT OF DATE\n");
+		k_timer_start(&led_blink_timer, K_MSEC(500), K_SECONDS(1));
 	} else {
 		led_on(pwm_dev, 1); // Red LED
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_ERROR, "TESTS FAILED\n");
+		k_timer_start(&led_blink_timer, K_MSEC(500), K_MSEC(500));
 	}
 	return 0;
 }
