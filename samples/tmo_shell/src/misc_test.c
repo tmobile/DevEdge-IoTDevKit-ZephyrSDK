@@ -12,67 +12,77 @@
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
 
+#define I2C_1 DT_NODE_FULL_NAME(DT_NODELABEL(i2c1))
+
+#if DT_NODE_EXISTS(DT_NODELABEL(as6212))
+#define TEMP_0 DT_NODE_FULL_NAME(DT_NODELABEL(as6212))
+#endif /* DT_NODE_EXISTS(DT_NODELABEL(as6212)) */
+
+#if DT_NODE_EXISTS(DT_NODELABEL(tsl2540))
+#define TSL2540 DT_NODE_FULL_NAME(DT_NODELABEL(tsl2540))
+#endif /* DT_NODE_EXISTS(DT_NODELABEL(tsl2540)) */
+
+#if DT_NODE_EXISTS(DT_NODELABEL(lis2dw12))
+#define LIS2DW12 DT_NODE_FULL_NAME(DT_NODELABEL(lis2dw12))
+#endif /* DT_NODE_EXISTS(DT_NODELABEL(lis2dw12)) */
+
+#if DT_NODE_EXISTS(DT_NODELABEL(lps22hh))
+#define LPS22HH DT_NODE_FULL_NAME(DT_NODELABEL(lps22hh))
+#endif /* DT_NODE_EXISTS(DT_NODELABEL(lps22hh)) */
+
 int misc_test()
 {
 	int ret = 0, rc = 0;
 
 #if DT_NODE_EXISTS(DT_NODELABEL(as6212))
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get TEMP_0")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get " TEMP_0)) != 0)
 	{
 		rc |= ret;
-		printf("sensor get TEMP_0 - as6212 temp sensor - shell command failed %d \n", ret);
+		printf("sensor get " TEMP_0  " - as6212 temp sensor - shell command failed %d \n", ret);
 	} else {
-		printf("sensor get TEMP_0 - as6212 temp sensor - shell command was successful\n");
-	}
-#else
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get TEMP_0")) != 0)
-	{
-		rc |= ret;
-		printf("sensor get TEMP_0 - tmp108 temp sensor - shell command failed %d \n", ret);
-	} else {
-		printf("sensor get TEMP_0 - tmp108 temp sensor - shell command was successful\n");
+		printf("sensor get " TEMP_0  " - as6212 temp sensor - shell command was successful\n");
 	}
 #endif
 #if DT_NODE_EXISTS(DT_NODELABEL(bq24250))
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c read_byte I2C_1 0x6a 0x3")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c read_byte " I2C_1 " 0x6a 0x3")) != 0)
 	{
 		rc |= ret;
-		printf("i2c read_byte I2C_1 0x6a 0x3 - BQ24250 voltage regulator- shell command failed %d \n", ret);
+		printf("i2c read_byte " I2C_1 " 0x6a 0x3 - BQ24250 voltage regulator- shell command failed %d \n", ret);
 	} else {
-		printf("i2c read_byte I2C_1 0x6a 0x3 - BQ24250 voltage regulator- shell command was successful\n");
+		printf("i2c read_byte " I2C_1 " 0x6a 0x3 - BQ24250 voltage regulator- shell command was successful\n");
 	}
 #else
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c read I2C_1 25 10")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c read " I2C_1 " 25 10")) != 0)
 	{
 		rc |= ret;
-		printf("i2c read I2C_1 25 10 - ACT81460 PMIC - shell command failed %d \n", ret);
+		printf("i2c read " I2C_1 " 25 10 - ACT81460 PMIC - shell command failed %d \n", ret);
 	} else {
-		printf("i2c read I2C_1 25 10 - ACT81460 PMIC - shell command was successful\n");
+		printf("i2c read " I2C_1 " 25 10 - ACT81460 PMIC - shell command was successful\n");
 	}
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c write_byte I2C_1 25 47 98")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c write_byte " I2C_1 " 25 47 98")) != 0)
 	{
 		rc |= ret;
-		printf("i2c write_byte I2C_1 25 47 98 - ACT81460 PMIC turn on GNSS - shell command failed %d \n", ret);
+		printf("i2c write_byte " I2C_1 " 25 47 98 - ACT81460 PMIC turn on GNSS - shell command failed %d \n", ret);
 	} else {
-		printf("i2c write_byte I2C_1 25 47 98 - ACT81460 PMIC turn on GNSS - shell command was successful\n");
+		printf("i2c write_byte " I2C_1 " 25 47 98 - ACT81460 PMIC turn on GNSS - shell command was successful\n");
 	}
 #endif
 #if DT_NODE_EXISTS(DT_NODELABEL(sonycxd5605))
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c read I2C_1 24 10")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c read " I2C_1 " 24 10")) != 0)
 	{
 		rc |= ret;
-		printf("i2c read I2C_1 24 10 - Sony cxd5605 GNSS - shell command failed %d \n", ret);
+		printf("i2c read " I2C_1 " 24 10 - Sony cxd5605 GNSS - shell command failed %d \n", ret);
 	} else {
-		printf("i2c read I2C_1 24 10 - Sony cxd5605 GNSS - shell command was successful\n");
+		printf("i2c read " I2C_1 " 24 10 - Sony cxd5605 GNSS - shell command was successful\n");
 	}
 #endif
 #if DT_NODE_EXISTS(DT_NODELABEL(tsl2540))
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get TSL2540")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get " TSL2540)) != 0)
 	{
 		rc |= ret;
-		printf("sensor get TSL2540 - tsl25403 ambient light sensor - shell command failed %d \n", ret);
+		printf("sensor get " TSL2540 " - tsl25403 ambient light sensor - shell command failed %d \n", ret);
 	} else {
-		printf("sensor get TSL2540 - tsl25403 ambient light sensor - shell command was successful\n");
+		printf("sensor get " TSL2540 " - tsl25403 ambient light sensor - shell command was successful\n");
 	}
 #endif
 #if DT_NODE_EXISTS(DT_NODELABEL(murata_1sc))
@@ -101,21 +111,21 @@ int misc_test()
 	}
 #endif
 #if DT_NODE_EXISTS(DT_NODELABEL(lis2dw12))
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get LIS2DW12")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get " LIS2DW12)) != 0)
 	{
 		rc |= ret;
-		printf("sensor get LIS2DW12 - accelerometer - shell command failed %d \n", ret);
+		printf("sensor get " LIS2DW12 " - accelerometer - shell command failed %d \n", ret);
 	} else {
-		printf("sensor get LIS2DW12 - accelerometer - shell command was successful\n");
+		printf("sensor get " LIS2DW12 " - accelerometer - shell command was successful\n");
 	}
 #endif
 #if DT_NODE_EXISTS(DT_NODELABEL(lps22hh))
-	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get LPS22HH")) != 0)
+	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "sensor get " LPS22HH)) != 0)
 	{
 		rc |= ret;
-		printf("sensor get LPS22HH - pressure sensor - shell command failed %d \n", ret);
+		printf("sensor get " LPS22HH " - pressure sensor - shell command failed %d \n", ret);
 	} else {
-		printf("sensor get LPS22HH - pressure sensor - shell command was successful\n");
+		printf("sensor get " LPS22HH " - pressure sensor - shell command was successful\n");
 	}
 #endif
 	if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "fs write /tmo/access_id.txt 30 31 32 33 0a 0d")) != 0)
@@ -140,12 +150,12 @@ int misc_test()
 		printf("fs rm /tmo/access_id.txt - SPI nor flash - shell command was successful\n");
 	}
 	if (strcmp(CONFIG_BOARD, "tmo_dev_edge") == 0) {
-		if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c scan I2C_1")) != 0)
+		if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c scan " I2C_1)) != 0)
 		{
 			rc |= ret;
-			printf("i2c scan I2C_1 - shell command failed %d \n", ret);
+			printf("i2c scan " I2C_1 " - shell command failed %d \n", ret);
 		} else {
-			printf("i2c scan I2C_1 - shell command was successful\n");
+			printf("i2c scan " I2C_1 " - shell command was successful\n");
 		}
 	}
 	return rc;
