@@ -147,7 +147,10 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 		k_thread_suspend((struct k_thread *)this_thread);
 	}
 #else
-#define STRUCT_INIT(enumerator) {enumerator, #enumerator}
+#define STRUCT_INIT(enumerator)                                                                    \
+	{                                                                                          \
+		enumerator, #enumerator                                                            \
+	}
 	const struct {
 		enum pm_device_action value;
 		const char *name;
@@ -160,13 +163,18 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 #undef STRUCT_INIT
 
 	const struct device *devices;
-	size_t n_devices;
-
-	n_devices = z_device_get_all_static(&devices);
+	const size_t n_devices = z_device_get_all_static(&devices);
+	struct {
+		struct device *on_off_support, *resume_suspend_support;
+		struct action {
+			bool discovered, supported;
+		} action[(sizeof device_action / sizeof device_action[0])];
+	} device_action_support[n_devices];
+	memset(&device_action_support, 0, sizeof device_action_support);
 
 	for (unsigned char action_index = 0; true;
 	     action_index = (action_index + 1) % (sizeof device_action / sizeof device_action[0])) {
-		LOG_INF("%s(): resuming", __func__);
+		LOG_INF("%s(): awake", __func__);
 		LOG_INF("device_action[%d].value: %d, device_action[%d].name: %s", action_index,
 			device_action[action_index].value, action_index,
 			device_action[action_index].name);
@@ -179,15 +187,42 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 			 * runtime PM enabled.
 			 */
 			if (devices[ii].pm != NULL &&
-			    (pm_device_is_busy(&devices[ii]) || pm_device_state_is_locked(&devices[ii]) ||
+			    (pm_device_is_busy(&devices[ii]) ||
+			     pm_device_state_is_locked(&devices[ii]) ||
 			     pm_device_wakeup_is_enabled(&devices[ii]) ||
 			     pm_device_runtime_is_enabled(&devices[ii]))) {
 				continue;
 			}
 
-			LOG_INF("%s(): call pm_device_action_run(\"%s\", %s)", __func__,
-				devices[ii].name, device_action[action_index].name);
-			ret = pm_device_action_run(&devices[ii], device_action[action_index].value);
+			if (!device_action_support[ii]
+				     .action[device_action[action_index].value]
+				     .discovered) {
+				LOG_INF("%s(): initial call to pm_device_action_run(\"%s\", %s)",
+					__func__, devices[ii].name,
+					device_action[action_index].name);
+				ret = pm_device_action_run(&devices[ii],
+							   device_action[action_index].value);
+				if (-ENOSYS == ret) {
+					device_action_support[ii].action[PM_DEVICE_ACTION_SUSPEND] = 
+					device_action_support[ii].action[PM_DEVICE_ACTION_RESUME] = 
+					device_action_support[ii].action[PM_DEVICE_ACTION_TURN_OFF] = 
+					device_action_support[ii].action[PM_DEVICE_ACTION_TURN_ON] = 
+						(struct action) {.discovered = true, .supported = false};
+				} else {
+					device_action_support[ii].action[device_action[action_index].value].discovered = true;
+					device_action_support[ii].action[device_action[action_index].value].supported = /* -ENOTSUP != ret */ true;
+				}
+			} else if (device_action_support[ii]
+					   .action[device_action[action_index].value]
+					   .supported) {
+				LOG_INF("%s(): subsequent call to pm_device_action_run(\"%s\", %s)",
+					__func__, devices[ii].name,
+					device_action[action_index].name);
+				ret = pm_device_action_run(&devices[ii],
+							   device_action[action_index].value);
+			} else {
+				continue;
+			}
 			/* ignore devices not supporting or already at the given state */
 			/* if ((ret == -ENOSYS) || (ret == -ENOTSUP) || (ret == -EALREADY)) {
 				continue;
@@ -195,20 +230,29 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 				LOG_ERR("Device %s did not enter %s state (%d)", devices[ii].name,
 					device_action[action_index].name, ret);
 			} */
+			if (-ENOSYS == ret) {
+				pm_device_state_lock(&devices[ii]);
+				if (!pm_device_state_is_locked(&devices[ii])) {
+					LOG_ERR("Device %s did not enter %s state (%d)",
+						devices[ii].name, device_action[action_index].name,
+						ret);
+				}
+			}
 
-			
 			pm_device_state_get(&devices[ii], &pm_device_state);
 
 			if (ret) {
 				LOG_WRN("%s(): %s call status: %d, device state: %s", __func__,
-					devices[ii].name, ret, pm_device_state_str(pm_device_state));
+					devices[ii].name, ret,
+					pm_device_state_str(pm_device_state));
 			} else {
 				LOG_INF("%s(): %s call status: %d, device state: %s", __func__,
-					devices[ii].name, ret, pm_device_state_str(pm_device_state));
+					devices[ii].name, ret,
+					pm_device_state_str(pm_device_state));
 			}
 		}
 
-		LOG_INF("%s(): suspending\n", __func__);
+		LOG_INF("%s(): asleep\n", __func__);
 		k_thread_suspend((struct k_thread *)this_thread);
 	}
 #endif
@@ -218,8 +262,8 @@ void main(void)
 {
 	/* Create and start power management thread. */
 	k_thread_create(&thread_id, thread_stack, THREAD_STACK_SIZE, pm_thread, &thread_id, NULL,
-			NULL, PRIORITY, K_INHERIT_PERMS, K_FOREVER);
-	k_thread_start(&thread_id);
+			NULL, PRIORITY, K_INHERIT_PERMS, K_NO_WAIT);
+	// k_thread_start(&thread_id);
 
 	/* Start a periodic timer. */
 	k_timer_start(&pm_timer, TIMER_DURATION, TIMER_PERIOD);
