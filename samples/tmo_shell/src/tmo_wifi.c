@@ -458,4 +458,44 @@ static int tmo_wifi_shell_init(const struct device *unused)
 	return 0;
 }
 
+#ifdef CONFIG_WIFI_RS9116W
+#include <rsi_wlan_apis.h>
+#endif /* CONFIG_WIFI_RS9116W */
+
+int cmd_wifi_mac(const struct shell *shell, size_t argc, char *argv[])
+{
+	status_requested = true;
+	// struct net_if *iface = net_if_get_default();
+	if (argc < 2){
+		shell_error(shell, "Missing required arguments");
+		z_shell_help_subcmd_print_selitem(shell);
+		return -EINVAL;
+	}
+	int idx = strtol(argv[1], NULL, 10);
+	struct net_if *iface = net_if_get_by_index(idx);
+	if (iface == NULL) {
+		shell_error(shell, "Interface %d not found", idx);
+		return -EINVAL;
+	}
+#ifdef CONFIG_WIFI_RS9116W
+	else if (strstr(iface->if_dev->dev->name,"9116")) { 
+		uint8_t mac[6];
+
+		if (!rsi_wlan_get(RSI_MAC_ADDRESS, mac, sizeof(mac))) {
+			shell_print(shell, "RS9116 MAC address: %02x:%02x:%02x:%02x:%02x:%02x",
+				mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		} else {
+			shell_error(shell, "Failed to read MAC address from 9116 module");
+			return -ENOEXEC;
+		}
+	}
+#endif /* CONFIG_WIFI_RS9116W */
+	else {
+		shell_error(shell, "Operation not supported on specified interface");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 SYS_INIT(tmo_wifi_shell_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
