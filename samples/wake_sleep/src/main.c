@@ -81,18 +81,19 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 		STRUCT_INIT(PM_DEVICE_ACTION_TURN_ON),
 	};
 #undef STRUCT_INIT
+	const size_t device_action_size = sizeof device_action / sizeof *device_action;
 
 	const struct device *devices;
 	const size_t n_devices = z_device_get_all_static(&devices);
 	struct {
 		struct action {
 			bool probed:1, supported:1;
-		} action[(sizeof device_action / sizeof device_action[0])];
+		} action[device_action_size];
 	} device_info[n_devices];
 
 	memset(&device_info, 0, sizeof device_info);
 	for (unsigned char action_index = 0; true;
-	     action_index = (action_index + 1) % (sizeof device_action / sizeof device_action[0])) {
+	     action_index = (action_index + 1) % device_action_size) {
 		LOG_INF("%s(): asleep\n", __func__);
 		k_thread_suspend((struct k_thread *)this_thread);
 		LOG_INF("%s(): awake", __func__);
