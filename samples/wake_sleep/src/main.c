@@ -6,7 +6,7 @@
 
 // uart:~$ tmo pm get
 // get: wrong parameter count
-// get - Get a device's power manangement state
+// get - Get a device's power management state
 // Subcommands:
 //   murata_1sc
 //   rs9116w@0
@@ -111,7 +111,7 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 			 */
 			if (devices[ii].pm != NULL &&
 			    (pm_device_is_busy(&devices[ii]) ||
-			     pm_device_state_is_locked(&devices[ii]) ||
+			    //  pm_device_state_is_locked(&devices[ii]) ||
 			     pm_device_wakeup_is_enabled(&devices[ii]) ||
 			     pm_device_runtime_is_enabled(&devices[ii]))) {
 				continue;
