@@ -12,6 +12,7 @@
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
 
+#define I2C_0 DT_NODE_FULL_NAME(DT_NODELABEL(i2c0))
 #define I2C_1 DT_NODE_FULL_NAME(DT_NODELABEL(i2c1))
 
 #if DT_NODE_EXISTS(DT_NODELABEL(as6212))
@@ -150,12 +151,12 @@ int misc_test()
 		printf("fs rm /tmo/access_id.txt - SPI nor flash - shell command was successful\n");
 	}
 	if (strcmp(CONFIG_BOARD, "tmo_dev_edge") == 0) {
-		if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c scan " I2C_1)) != 0)
+		if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c scan " I2C_0)) != 0)
 		{
 			rc |= ret;
-			printf("i2c scan " I2C_1 " - shell command failed %d \n", ret);
+			printf("i2c scan " I2C_0 " - shell command failed %d \n", ret);
 		} else {
-			printf("i2c scan " I2C_1 " - shell command was successful\n");
+			printf("i2c scan " I2C_0 " - shell command was successful\n");
 		}
 	}
 	return rc;
