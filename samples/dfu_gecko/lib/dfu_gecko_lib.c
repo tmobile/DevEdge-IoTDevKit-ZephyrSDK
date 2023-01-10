@@ -18,9 +18,10 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
-#include <mbedtls/sha1.h>
+#include "mbedtls/sha1.h"
+#include "dfu_gecko_lib.h"
 
-#include "tmo_dfu_download.h"
+//#include "tmo_dfu_download.h"
 
 // SHAs are set to 0 since they are unknown before a build
 const struct dfu_file_t dfu_files_mcu[] = {

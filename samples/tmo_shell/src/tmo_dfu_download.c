@@ -18,7 +18,7 @@ LOG_MODULE_REGISTER(tmo_dfu_download, LOG_LEVEL_DBG);
 
 #include "ca_certificate.h"
 #include "tmo_dfu_download.h"
-#include "dfu_gecko.h"
+#include "dfu_gecko_lib.h"
 #include "dfu_murata_1sc.h"
 #include "dfu_rs9116w.h"
 #include "tmo_shell.h"
