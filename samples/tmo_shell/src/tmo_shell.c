@@ -107,6 +107,7 @@ const struct shell *shell = NULL;
 #define XFER_SIZE 5000
 uint8_t mxfer_buf[XFER_SIZE+1];
 int max_fragment = 1000;
+int num_ifaces = 0;
 bool board_has_gnss = false;
 
 int murata_socket_offload_init(void);
@@ -160,7 +161,13 @@ int tcp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
+	
+	if (idx > num_ifaces) {
+		shell_error(shell, "Excessive interface number passed");
+		return -EINVAL;
+	}
 	struct net_if *iface = net_if_get_by_index(idx);
+
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
@@ -276,7 +283,13 @@ int udp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
+
+	if (idx > num_ifaces) {
+		shell_error(shell, "Excessive interface number passed");
+		return -EINVAL;
+	}
 	struct net_if *iface = net_if_get_by_index(idx);
+	
 	if (iface == NULL) {
 		shell_error(shell, "Interface %p not found", iface);
 		return -EINVAL;
@@ -2394,8 +2407,15 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_tmo,
 
 		SHELL_CMD_REGISTER(tmo, &sub_tmo, "TMO Shell Commands", NULL);
 
+static void count_ifaces(struct net_if *iface, void *user_data)
+{
+	num_ifaces++;
+}
+
 void tmo_shell_main (void)
 {
+
+	net_if_foreach(count_ifaces, NULL);
 	ext_flash_dev = device_get_binding(FLASH_DEVICE);
 	if (!ext_flash_dev) {
 		printf("SPI NOR external flash driver %s was not found!\n", FLASH_DEVICE);
