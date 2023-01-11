@@ -4,28 +4,45 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/led.h>
 // #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 #include <zephyr/pm/pm.h>
 #include <zephyr/pm/policy.h>
 #include <zephyr/pm/state.h>
 
+
+#include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(wake_sleep, CONFIG_PM_LOG_LEVEL);
 
-#include <stdlib.h>
-#include <string.h>
+/*
+ * There's undoubtably a better way to disable the LOG_INF and LOG_WRN fuctions;
+ * nevertheless, this works.
+ */
+#define LOG_INF_DISABLE 1
+#if LOG_INF_DISABLE
+#undef LOG_INF
+#define LOG_INF(fmt, ...)
+#endif
+#undef LOG_INF_DISABLE
+
+#define LOG_WRN_DISABLE 0
+#if LOG_WRN_DISABLE
+#undef LOG_WRN
+#define LOG_WRN(fmt, ...)
+#endif
+#undef LOG_WRN_DISABLE
 
 /*
- * The following is included for Zephyr's non-standard support of strerror
-*/
-#ifndef sys_nerr
-#include <libc/minimal/strerror_table.h>
-#endif
+ * TODO: Remove this temporary workaround, which is for debugging purposes only).
+ * Note, this not to be released to production.
+ */
+#include "strerror.h"
+
+#include <stdio.h>
+#include <string.h>
 
 /*
  * Thread defines
@@ -35,20 +52,23 @@ LOG_MODULE_DECLARE(wake_sleep, CONFIG_PM_LOG_LEVEL);
 /*
  * Timer defines
  */
-#define TIMER_ENABLE 1
+#define TIMER_ENABLE 0
 #if TIMER_ENABLE
 #define TIMER_DURATION K_SECONDS(30)
 #define TIMER_PERIOD   K_SECONDS(60)
 #define TIMER_STOP_FN NULL
 #endif
+#undef TIMER_ENABLE
 
 /*
- * Deep-sleep define(s)
+ * Deep-sleep defines
  */
 #define SLEEP_ENABLE 0
 #if SLEEP_ENABLE
 #define SLEEP_DURATION	K_MSEC(1)
 #endif
+#undef SLEEP_ENABLE
+
 
 /*
  * Pushbutton defines and data
@@ -69,7 +89,11 @@ const struct device *pwm_leds;
  * The led0 devicetree alias is optional. If present, we'll use it
  * to turn on the LED whenever the button is pressed.
  */
-// static struct gpio_dt_spec led0 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led0), gpios, {0});
+// #define LED0_NODE DT_ALIAS(led0)
+// #if !DT_NODE_HAS_STATUS(LED0_NODE, okay)
+// #error "Unsupported board: led0 device-tree alias is not defined"
+// #endif
+// static struct gpio_dt_spec led0 = GPIO_DT_SPEC_GET_OR(LED0_NODE, gpios, {0});
 
 /*
  * Thread data
@@ -97,23 +121,6 @@ static void user_push_button_intr_callback(const struct device *port, struct gpi
 {
 	k_thread_resume(&thread_id);
 }
-
-
-/*
- * Interim support for strerror
- */
-#ifdef sys_nerr
-#define strerror strerror_extended
-static const char *strerror(int error_value)
-{
-	error_value = abs(error_value);
-	if (sys_nerr < error_value) {
-		return "";
-	} else {
-		return sys_errlist[error_value];
-	}
-}
-#endif
 
 
 /*
@@ -187,13 +194,13 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 	for (unsigned char action_index = 0; true;
 	     action_index = (action_index + 1) % device_action_size) {
 		gate_leds(-1);
-		LOG_INF("%s(): asleep\n", __func__);
+		printf("%s(): asleep\n\n", __func__);
 		k_thread_suspend((struct k_thread *)this_thread);
 		gate_leds(device_action[action_index].value);
-		LOG_INF("%s(): awake", __func__);
+		printf("%s(): awake\n", __func__);
 
 
-		LOG_INF("device_action[%d].value: %d, device_action[%d].name: %s", action_index,
+		printf("device_action[%d].value: %d, device_action[%d].name: %s\n", action_index,
 			device_action[action_index].value, action_index,
 			device_action[action_index].name);
 		for (size_t ii = 0; ii < n_devices; ii++) {
@@ -246,9 +253,9 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 			} else if (device_info[ii]
 					   .action[device_action[action_index].value]
 					   .supported) {
-				// LOG_INF("%s(): subsequent call to pm_device_action_run(%s, %s)",
-				// 	__func__, devices[ii].name,
-				// 	device_action[action_index].name);
+				LOG_INF("%s(): subsequent call to pm_device_action_run(%s, %s)",
+					__func__, devices[ii].name,
+					device_action[action_index].name);
 				ret = pm_device_action_run(&devices[ii],
 							   device_action[action_index].value);
 			} else {
@@ -289,6 +296,19 @@ SYS_INIT(disable_deep_sleep, PRE_KERNEL_2, 0);
 
 
 /*
+ * Print usage information
+ */
+static void greeting()
+{
+	puts("\n\n\t\t\tWelcome to T-Mobile DevEdge!\n\n"
+	     "This application aims to demonstrate the Gecko's Energy Mode 2 (EM2) (Deep\n"
+	     "Sleep Mode) and Wake capabilities in conjunction with the SW0 interrupt pin,\n"
+	     "which is connected to the user pushbutton switch of the DevEdge module.\n\n"
+		 "Press and release the user pushbutton to advance from one power management\n"
+		 "mode to the next.\n");
+}
+
+/*
  *	Set up the GPIO and interrupt service structures
  */
 static void setup(void)
@@ -300,20 +320,20 @@ static void setup(void)
 	pwm_leds = device_get_binding("pwmleds");
 
 	if (!device_is_ready(button.port)) {
-		LOG_INF("Error: button device %s is not ready", button.port->name);
+		LOG_ERR("Error: button device %s is not ready", button.port->name);
 		return;
 	}
 
 	ret = gpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP);
 	if (ret != 0) {
-		LOG_INF("Error %d: failed to configure %s pin %d", ret, button.port->name,
+		LOG_ERR("Error %d: failed to configure %s pin %d", ret, button.port->name,
 		       button.pin);
 		return;
 	}
 
 	ret = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_RISING);
 	if (ret != 0) {
-		LOG_INF("Error %d: failed to configure interrupt on %s pin %d", ret,
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d", ret,
 		       button.port->name, button.pin);
 		return;
 	}
@@ -328,6 +348,9 @@ static void setup(void)
  */
 void main(void)
 {
+	/* Print usage information */
+	greeting();
+
 	/* Set up hardware and interrupt service routines */
 	setup();
 
