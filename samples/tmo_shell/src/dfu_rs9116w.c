@@ -17,6 +17,26 @@
 #include <zephyr/drivers/gpio.h>
 #include <rsi_wlan_apis.h>
 #include <rsi_common_apis.h>
+#undef AF_INET
+#undef AF_INET6
+#undef AF_UNSPEC
+#undef PF_INET
+#undef PF_INET6
+#undef TCP_NODELAY
+#undef IP_TOS
+#undef IPPROTO_IP
+#undef IPPROTO_TCP
+#undef IPPROTO_UDP
+#undef IPPROTO_RAW
+#undef SOCK_STREAM
+#undef SOCK_DGRAM
+#undef SOCK_RAW
+#undef htons
+#undef htonl
+#undef ntohs
+#undef ntohl
+#undef s6_addr
+#undef s6_addr32
 
 #include "dfu_rs9116w.h"
 #include "tmo_dfu_download.h"
