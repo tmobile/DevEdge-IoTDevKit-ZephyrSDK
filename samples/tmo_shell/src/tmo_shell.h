@@ -67,6 +67,7 @@ int cmd_wifi_connect(const struct shell *shell, size_t argc, char *argv[]);
 int cmd_wifi_disconnect(const struct shell *shell, size_t argc, char *argv[]);
 int cmd_wifi_scan(const struct shell *shell, size_t argc, char *argv[]);
 int cmd_wifi_status(const struct shell *shell, size_t argc, char *argv[]);
+int cmd_wifi_mac(const struct shell *shell, size_t argc, char *argv[]);
 
 int toggle_keyboard(const struct shell *shell, size_t argc, char *argv[]);
 int toggle_confirm(const struct shell *shell, size_t argc, char *argv[]);

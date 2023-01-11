@@ -1526,6 +1526,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_wifi_commands,
 			cmd_wifi_connect),
 		SHELL_CMD(disconnect, NULL, "\"<iface>\"",
 			cmd_wifi_disconnect),
+		SHELL_CMD(mac, NULL, "\"<iface>\"",
+			cmd_wifi_mac),
 		SHELL_CMD(scan, NULL, "\"<iface>\"", cmd_wifi_scan),
 		SHELL_CMD(status, NULL, "\"<iface>\"", cmd_wifi_status),
 		SHELL_SUBCMD_SET_END
