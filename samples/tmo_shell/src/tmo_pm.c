@@ -21,6 +21,13 @@ int cmd_pmresume(const struct shell *shell, int argc, char** argv)
 		return -ENODEV;
 	}
 
+	enum pm_device_state state;
+	ret = pm_device_state_get(dev, &state);
+
+	if (state == PM_DEVICE_STATE_OFF) {
+		cmd_pmon(shell, argc, argv);
+	}
+
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_RESUME);
 	if (ret == -ENOTSUP) {
 		shell_warn(shell, "Device %s does not support action PM_DEVICE_ACTION_RESUME; Command ignored", argv[1]);
@@ -59,6 +66,13 @@ int cmd_pmoff(const struct shell *shell, int argc, char** argv)
 	if (dev == NULL) {
 		shell_error(shell, "Device unknown (%s)", argv[1]);
 		return -ENODEV;
+	}
+
+	enum pm_device_state state;
+	ret = pm_device_state_get(dev, &state);
+
+	if (state == PM_DEVICE_STATE_ACTIVE) {
+		cmd_pmsuspend(shell, argc, argv);
 	}
 
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
