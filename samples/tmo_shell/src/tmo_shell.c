@@ -2315,7 +2315,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_ble_sub,
 #if CONFIG_PM_DEVICE
 SHELL_DYNAMIC_CMD_CREATE(dsub_device_name, pm_device_name_get);
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_pm,
-	SHELL_CMD_ARG(get, &dsub_device_name, "Get a device's power manangement state", cmd_pmget,
+	SHELL_CMD_ARG(get, &dsub_device_name, "Get a device's power management state", cmd_pmget,
 			2, 2),
 	SHELL_CMD_ARG(off, &dsub_device_name, "Put a device into the off/unpowered state", cmd_pmoff,
 			2, 2),
