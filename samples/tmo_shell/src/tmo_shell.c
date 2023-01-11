@@ -1952,6 +1952,43 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 	return millivolts;
 }
 
+int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
+{
+	uint8_t percent = 0;
+	uint32_t millivolts = 0;
+	uint8_t battery_attached = 0;
+	uint8_t charging = 0;
+        uint8_t vbus = 0;
+	uint8_t fault= 0;
+	shell_print(shell, "Discharging battery, this will take a while...");
+
+	led_on(device_get_binding("pwmleds"), 0);
+	led_on(device_get_binding("pwmleds"), 1);
+	led_on(device_get_binding("pwmleds"), 2);
+	led_on(device_get_binding("pwmleds"), 3);
+
+	do {
+		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+		if (battery_attached !=  0) {
+			millivolts = read_battery_voltage();
+			millivolts_to_percent(millivolts, &percent);
+		} else {
+			shell_error(shell, "Battery not attached, aborting...");
+			return -ENOEXEC;
+		}
+		shell_print(shell, "Discharging battery (%d%%)...", percent);
+		k_sleep(K_SECONDS(30));
+	} while (percent >= 60);
+	if (percent < 5) {
+		shell_warn(shell, "Battery below 50%% (%d%%)", percent);
+	}
+
+	cmd_pmsysfulloff(shell, 0, NULL);
+
+	return 0;
+}
+
+
 int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 {
 	uint8_t percent = 0;
@@ -2237,6 +2274,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_dfu_sub,
 
 SHELL_STATIC_SUBCMD_SET_CREATE(tmo_battery_sub,
 		SHELL_CMD(charger, NULL, "Get charger status", cmd_charging_status),
+		SHELL_CMD(discharge, NULL, "Discharge battery for shipping", cmd_battery_discharge),
 		SHELL_CMD(percent, NULL, "Get battery level (percent)", cmd_battery_percentage),
 		SHELL_CMD(voltage, NULL, "Get battery level (Volts)", cmd_battery_voltage),
 		SHELL_SUBCMD_SET_END
