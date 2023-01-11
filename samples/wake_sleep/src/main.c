@@ -4,46 +4,55 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// uart:~$ tmo pm get
-// get: wrong parameter count
-// get - Get a device's power management state
-// Subcommands:
-//   murata_1sc
-//   rs9116w@0
-//   pwmleds
-//   sonycxd5605@24
-//   tsl2540@39
-// uart:~$
 
-#include <zephyr/kernel.h>
-#include <zephyr/pm/pm.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/led.h>
+// #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
-#include <zephyr/pm/state.h>
+#include <zephyr/pm/pm.h>
 #include <zephyr/pm/policy.h>
-#include <zephyr/drivers/led.h>
-#include <zephyr/sys/printk.h>
-#include <inttypes.h>
-#include <zephyr/drivers/gpio.h>
+#include <zephyr/pm/state.h>
 
-#include <stdio.h>
-#include <assert.h>
-#include <string.h>
-#include <stdlib.h>
-
-#define TIMER_DURATION K_SECONDS(30)
-#define TIMER_PERIOD   K_SECONDS(60)
-
-#define SLEEP_DURATION	K_SECONDS(1)
-#define THREAD_PRIORITY K_PRIO_COOP(5)
-
-#define TIMER_STOP_FN NULL
-
-#include <zephyr/logging/log.h>
-#include <libc/minimal/strerror_table.h>
 LOG_MODULE_DECLARE(wake_sleep, CONFIG_PM_LOG_LEVEL);
 
+#include <stdlib.h>
+#include <string.h>
 
+/*
+ * The following is included for Zephyr's non-standard support of strerror
+*/
+#ifndef sys_nerr
+#include <libc/minimal/strerror_table.h>
+#endif
+
+/*
+ * Thread defines
+ */
+#define THREAD_PRIORITY K_PRIO_COOP(5)
+
+/*
+ * Timer defines
+ */
+#define TIMER_ENABLE 1
+#if TIMER_ENABLE
+#define TIMER_DURATION K_SECONDS(30)
+#define TIMER_PERIOD   K_SECONDS(60)
+#define TIMER_STOP_FN NULL
+#endif
+
+/*
+ * Deep-sleep define(s)
+ */
+#define SLEEP_ENABLE 0
+#if SLEEP_ENABLE
+#define SLEEP_DURATION	K_MSEC(1)
+#endif
+
+/*
+ * Pushbutton defines and data
+ */
 #define SW0_NODE DT_ALIAS(sw0)
 #if !DT_NODE_HAS_STATUS(SW0_NODE, okay)
 #error "Unsupported board: sw0 device-tree alias is not defined"
@@ -52,35 +61,47 @@ static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios, {
 static struct gpio_callback button_cb_data;
 
 /*
+ * LED data
+ */
+const struct device *pwm_leds;
+
+/*
  * The led0 devicetree alias is optional. If present, we'll use it
  * to turn on the LED whenever the button is pressed.
  */
 // static struct gpio_dt_spec led0 = GPIO_DT_SPEC_GET_OR(DT_ALIAS(led0), gpios, {0});
 
 /*
- * Variables pertaining to the interrupt service routine
+ * Thread data
  */
-// static volatile int push_button_isr_count = 0;
-// static volatile bool print_edges = false;
 static struct k_thread thread_id;
 
 
-void timer_isr(struct k_timer *dummy)
+/*
+ * Timer interrupt service routine
+ */
+#if defined(TIMER_DURATION) && defined(TIMER_PERIOD)
+static void timer_isr(struct k_timer *dummy)
 {
 	k_thread_resume(&thread_id);
 }
+static K_TIMER_DEFINE(pm_timer, timer_isr, TIMER_STOP_FN);
+#endif
 
 
 /*
- * User Push Button (sw0) interrupt callback
+ * User Push Button (sw0) interrupt service routine
  */
-void user_push_button_intr_callback(const struct device *port, struct gpio_callback *cb,
+static void user_push_button_intr_callback(const struct device *port, struct gpio_callback *cb,
 				    gpio_port_pins_t pin_mask)
 {
 	k_thread_resume(&thread_id);
 }
 
 
+/*
+ * Interim support for strerror
+ */
 #ifdef sys_nerr
 #define strerror strerror_extended
 static const char *strerror(int error_value)
@@ -95,9 +116,12 @@ static const char *strerror(int error_value)
 #endif
 
 
+/*
+ * Gate the various LEDs on and off
+ */
 static void gate_leds(enum pm_device_action pm_device_action)
 {
-	const struct device *pwm_leds = device_get_binding("pwmleds");
+
 
 	switch(pm_device_action) {
 		case PM_DEVICE_ACTION_SUSPEND:
@@ -125,8 +149,11 @@ static void gate_leds(enum pm_device_action pm_device_action)
 	}
 }
 
-K_TIMER_DEFINE(pm_timer, timer_isr, TIMER_STOP_FN);
-K_THREAD_STACK_DEFINE(thread_stack, 1024);
+
+/*
+ * The power management thread
+ */
+static K_THREAD_STACK_DEFINE(thread_stack, 1024);
 static void pm_thread(void *this_thread, void *p2, void *p3)
 {
 	ARG_UNUSED(p2);
@@ -212,9 +239,8 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 					   (struct action){.probed = true, .supported = false};
 					break;
 				default:
-					// assert(0 != ret);
-					__ASSERT(0 != ret, "Unexpected return value: %d (%s)", ret,
-						 strerror(ret));
+					LOG_WRN("Unexpected return value: %d (%s)", ret,
+						strerror(ret));
 					break;
 				}
 			} else if (device_info[ii]
@@ -269,29 +295,31 @@ static void setup(void)
 {
 	int ret;
 
-	puts("Setting up GPIO and IRS structures");
+	LOG_INF("Setting up GPIO and ISR structures");
+
+	pwm_leds = device_get_binding("pwmleds");
 
 	if (!device_is_ready(button.port)) {
-		printk("Error: button device %s is not ready\n", button.port->name);
+		LOG_INF("Error: button device %s is not ready", button.port->name);
 		return;
 	}
 
 	ret = gpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP);
 	if (ret != 0) {
-		printk("Error %d: failed to configure %s pin %d\n", ret, button.port->name,
+		LOG_INF("Error %d: failed to configure %s pin %d", ret, button.port->name,
 		       button.pin);
 		return;
 	}
 
 	ret = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_RISING);
 	if (ret != 0) {
-		printk("Error %d: failed to configure interrupt on %s pin %d\n", ret,
+		LOG_INF("Error %d: failed to configure interrupt on %s pin %d", ret,
 		       button.port->name, button.pin);
 		return;
 	}
 	gpio_init_callback(&button_cb_data, user_push_button_intr_callback, BIT(button.pin));
 	gpio_add_callback(button.port, &button_cb_data);
-	printf("Set up button at %s pin %d\n\n", button.port->name, button.pin);
+	LOG_INF("Set up button at %s pin %d\n", button.port->name, button.pin);
 }
 
 
@@ -300,7 +328,7 @@ static void setup(void)
  */
 void main(void)
 {
-	/* Set up hardware and IRS routines */
+	/* Set up hardware and interrupt service routines */
 	setup();
 
 	/* Create the power management thread, and schedule it for execution. */
@@ -313,11 +341,11 @@ void main(void)
 		THREAD_PRIORITY, K_INHERIT_PERMS, K_NO_WAIT);
 
 #if defined(TIMER_DURATION) && defined(TIMER_PERIOD)
-	/* Start a periodic timer. */
+	/* Start the power management periodic timer. */
 	k_timer_start(&pm_timer, TIMER_DURATION, TIMER_PERIOD);
 #endif
 
-#if defined(PM_STATE_SUSPEND_TO_IDLE) && defined(SLEEP_DURATION)
+#ifdef SLEEP_DURATION
 	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
 	k_sleep(SLEEP_DURATION);
 #endif
