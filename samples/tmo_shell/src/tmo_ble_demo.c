@@ -631,17 +631,6 @@ static ssize_t cell_rssi_rd_cb(struct bt_conn *conn,
 #define UUID_TMO_CELL_IMEI \
 	uuid128(0x02d93bc0, 0x46da, 0x4444, 0x9527, 0xa063f082023b)
 
-BT_GATT_SERVICE_DEFINE(cellular_svc,
-		BT_GATT_PRIMARY_SERVICE(UUID_TMO_CELL_SVC),
-		BT_GATT_CHARACTERISTIC(UUID_TMO_CELL_IMEI,
-			BT_GATT_CHRC_READ, BT_GATT_PERM_READ,
-			imei_rd_cb, NULL, NULL
-			),
-		BT_GATT_CHARACTERISTIC(UUID_TMO_CELL_RSSI,
-			BT_GATT_CHRC_READ, BT_GATT_PERM_READ,
-			cell_rssi_rd_cb, NULL, NULL
-			),
-		);
 #endif /* CONFIG_MODEM */
 K_SEM_DEFINE(wifi_status_refresh_sem, 0, 1);
 uint8_t conn_ssid[WIFI_SSID_MAX_LEN] = {0};
@@ -678,8 +667,8 @@ static ssize_t rssi_rd_cb(struct bt_conn *conn,
 }
 
 
-// WiFi Service UUID: 75c7e8df-376a-4171-a096-41d486bb3d72
-#define UUID_TMO_WIFI_SVC \
+// Connectivity Service UUID: 75c7e8df-376a-4171-a096-41d486bb3d72
+#define UUID_TMO_CONN_SVC \
 	uuid128(0x75c7e8df, 0x376, 0x4171, 0xa096, 0x41d486bb3d72)
 
 // Wifi name Characteristic: 2618484d-7465-bc3f-b8f9-35f1af1c6f16 str
@@ -692,7 +681,7 @@ static ssize_t rssi_rd_cb(struct bt_conn *conn,
 
 
 BT_GATT_SERVICE_DEFINE(wifi_svc,
-		BT_GATT_PRIMARY_SERVICE(UUID_TMO_WIFI_SVC),
+		BT_GATT_PRIMARY_SERVICE(UUID_TMO_CONN_SVC),
 		BT_GATT_CHARACTERISTIC(UUID_TMO_WIFI_SSID,
 			BT_GATT_CHRC_READ, BT_GATT_PERM_READ,
 			ssid_rd_cb, NULL, conn_ssid
@@ -701,6 +690,16 @@ BT_GATT_SERVICE_DEFINE(wifi_svc,
 			BT_GATT_CHRC_READ, BT_GATT_PERM_READ,
 			rssi_rd_cb, NULL, &rssi
 			),
+#ifdef CONFIG_MODEM
+		BT_GATT_CHARACTERISTIC(UUID_TMO_CELL_IMEI,
+			BT_GATT_CHRC_READ, BT_GATT_PERM_READ,
+			imei_rd_cb, NULL, NULL
+			),
+		BT_GATT_CHARACTERISTIC(UUID_TMO_CELL_RSSI,
+			BT_GATT_CHRC_READ, BT_GATT_PERM_READ,
+			cell_rssi_rd_cb, NULL, NULL
+			),
+#endif /* CONFIG_MODEM */
 		);
 
 static const struct bt_data ad[] = {
