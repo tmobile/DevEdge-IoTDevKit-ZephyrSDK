@@ -37,6 +37,7 @@
 #include "tmo_smp.h"
 #include "tmo_shell.h"
 #include "tmo_battery_ctrl.h"
+#include "board.h"
 
 #define ON_CHARGER_POWER 0
 #define ON_BATTERY_POWER 1
@@ -466,11 +467,13 @@ static ssize_t write_aio_digital_output(struct bt_conn *conn,
 	if (ret < 0) {
 		return len;
 	}
+#ifdef LED_PWM_WHITE
 	if (aio_digital_output_state & BIT(3)){
-		led_on(dev, 0);
+		led_on(dev, LED_PWM_WHITE);
 	} else {
-		led_off(dev, 0);
+		led_off(dev, LED_PWM_WHITE);
 	}
+#endif /* LED_PWM_WHITE */
 
 	dev = PWMLEDS;
 	if (dev == NULL) {
@@ -482,9 +485,9 @@ static ssize_t write_aio_digital_output(struct bt_conn *conn,
 	}
 
 	if (aio_digital_output_state & BIT(0)){
-		led_on(dev, 1);
+		led_on(dev, LED_PWM_RED);
 	} else {
-		led_off(dev, 1);
+		led_off(dev, LED_PWM_RED);
 	}
 	dev = PWMLEDS;
 	if (dev == NULL) {
@@ -496,9 +499,9 @@ static ssize_t write_aio_digital_output(struct bt_conn *conn,
 	}
 
 	if (aio_digital_output_state & BIT(1)){
-		led_on(dev, 2);
+		led_on(dev, LED_PWM_GREEN);
 	} else {
-		led_off(dev, 2);
+		led_off(dev, LED_PWM_GREEN);
 	}
 	dev = PWMLEDS;
 	if (dev == NULL) {
@@ -510,9 +513,9 @@ static ssize_t write_aio_digital_output(struct bt_conn *conn,
 	}
 
 	if (aio_digital_output_state & BIT(2)){
-		led_on(dev, 3);
+		led_on(dev, LED_PWM_BLUE);
 	} else {
-		led_off(dev, 3);
+		led_off(dev, LED_PWM_BLUE);
 	}
 	if (ret < 0) {
 		return len;

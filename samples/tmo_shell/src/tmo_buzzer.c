@@ -11,6 +11,7 @@
 
 #include "tmo_buzzer.h"
 #include "tmo_leds.h"
+#include "board.h"
 
 const struct device *buzzer = DEVICE_DT_GET(DT_ALIAS(pwm_buzzer));
 
@@ -31,8 +32,8 @@ int pwm_set_frequency(const struct device *dev, uint32_t pwm, uint16_t hz)
 
 void tmo_play_jingle()
 {
-	led_set_brightness(PWMLEDS, 1, 100);
-	led_set_brightness(PWMLEDS, 3, 50);
+	led_set_brightness(PWMLEDS, LED_PWM_RED, 100);
+	led_set_brightness(PWMLEDS, LED_PWM_BLUE, 50);
 	pwm_set_frequency(buzzer, 0, TMO_TUNE_PITCH_LOW);
 	k_msleep(130);
 	pwm_set_frequency(buzzer, 0, 0);
@@ -52,8 +53,8 @@ void tmo_play_jingle()
 	pwm_set_frequency(buzzer, 0, TMO_TUNE_PITCH_LOW);
 	k_msleep(521);
 	pwm_set_frequency(buzzer, 0, 0);
-	led_set_brightness(PWMLEDS, 1, 10);
-	led_set_brightness(PWMLEDS, 3, 5);
+	led_set_brightness(PWMLEDS, LED_PWM_RED, 10);
+	led_set_brightness(PWMLEDS, LED_PWM_BLUE, 5);
 }
 
 #define RAMP_DWELL 100
