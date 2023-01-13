@@ -28,6 +28,11 @@ int cmd_pmresume(const struct shell *shell, int argc, char** argv)
 		cmd_pmon(shell, argc, argv);
 	}
 
+	if (pm_device_state_is_locked(dev)) {
+		shell_warn(shell, "Device %s PM is locked; Command ignored", argv[1]);
+		return -EPERM;
+	}
+
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_RESUME);
 	if (ret == -ENOTSUP) {
 		shell_warn(shell, "Device %s does not support action PM_DEVICE_ACTION_RESUME; Command ignored", argv[1]);
@@ -46,6 +51,11 @@ int cmd_pmsuspend(const struct shell *shell, int argc, char** argv)
 	if (dev == NULL) {
 		shell_error(shell, "Device unknown (%s)", argv[1]);
 		return -ENODEV;
+	}
+
+	if (pm_device_state_is_locked(dev)) {
+		shell_warn(shell, "Device %s PM is locked; Command ignored", argv[1]);
+		return -EPERM;
 	}
 
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
@@ -75,6 +85,11 @@ int cmd_pmoff(const struct shell *shell, int argc, char** argv)
 		cmd_pmsuspend(shell, argc, argv);
 	}
 
+	if (pm_device_state_is_locked(dev)) {
+		shell_warn(shell, "Device %s PM is locked; Command ignored", argv[1]);
+		return -EPERM;
+	}
+
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
 	if (ret == -ENOTSUP) {
 		shell_warn(shell, "Device %s does not support action PM_DEVICE_ACTION_TURN_OFF; Command ignored", argv[1]);
@@ -93,6 +108,11 @@ int cmd_pmon(const struct shell *shell, int argc, char** argv)
 	if (dev == NULL) {
 		shell_error(shell, "Device unknown (%s)", argv[1]);
 		return -ENODEV;
+	}
+
+	if (pm_device_state_is_locked(dev)) {
+		shell_warn(shell, "Device %s PM is locked; Command ignored", argv[1]);
+		return -EPERM;
 	}
 
 	ret = pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_ON);
@@ -142,9 +162,42 @@ int cmd_pmget(const struct shell *shell, int argc, char** argv)
 			state_str = "UNKNOWN";
 			break;
 		}
-		shell_print(shell, "Device is in state %s", state_str);
+		shell_print(shell, "Device is in state %s %s", state_str, 
+			pm_device_state_is_locked(dev) ? "[LOCKED]" : "");
 	}
 	
+	return ret;
+}
+
+int cmd_pmlock(const struct shell *shell, int argc, char** argv)
+{
+	int ret;
+	const struct device *dev;
+
+	dev = device_get_binding(argv[1]);
+	if (dev == NULL) {
+		shell_error(shell, "Device unknown (%s)", argv[1]);
+		return -ENODEV;
+	}
+
+	pm_device_state_lock(dev);
+	
+	return ret;
+}
+
+int cmd_pmunlock(const struct shell *shell, int argc, char** argv)
+{
+	int ret;
+	const struct device *dev;
+
+	dev = device_get_binding(argv[1]);
+	if (dev == NULL) {
+		shell_error(shell, "Device unknown (%s)", argv[1]);
+		return -ENODEV;
+	}
+
+	pm_device_state_unlock(dev);
+
 	return ret;
 }
 

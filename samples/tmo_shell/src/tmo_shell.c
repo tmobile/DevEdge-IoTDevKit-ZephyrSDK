@@ -2394,6 +2394,8 @@ SHELL_DYNAMIC_CMD_CREATE(dsub_device_name, pm_device_name_get);
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_pm,
 	SHELL_CMD_ARG(get, &dsub_device_name, "Get a device's power management state", cmd_pmget,
 			2, 2),
+	SHELL_CMD_ARG(lock, &dsub_device_name, "Lock a devices power management state", cmd_pmlock,
+			2, 2),
 	SHELL_CMD_ARG(off, &dsub_device_name, "Put a device into the off/unpowered state", cmd_pmoff,
 			2, 2),
 	SHELL_CMD_ARG(on, &dsub_device_name, "Put a device into the on/powered state", cmd_pmon,
@@ -2401,6 +2403,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_pm,
 	SHELL_CMD_ARG(resume, &dsub_device_name, "Resume a device from the suspended state", cmd_pmresume,
 			2, 2),
 	SHELL_CMD_ARG(suspend, &dsub_device_name, "Put a device into the suspended state", cmd_pmsuspend,
+			2, 2),
+	SHELL_CMD_ARG(unlock, &dsub_device_name, "Unlock a devices power management state", cmd_pmunlock,
 			2, 2),
 	SHELL_SUBCMD_SET_END
 	);
