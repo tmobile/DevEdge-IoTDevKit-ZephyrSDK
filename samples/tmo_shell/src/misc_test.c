@@ -220,3 +220,31 @@ int fw_test()
 
 	return 0;
 }
+
+#ifdef CONFIG_TMO_TEST_MFG_CHECK_ACCESS_CODE
+#include <zephyr/fs/fs.h>
+#endif /* CONFIG_TMO_TEST_MFG_CHECK_ACCESS_CODE */
+
+int ac_test()
+{
+#ifdef CONFIG_TMO_TEST_MFG_CHECK_ACCESS_CODE
+	int ret, bytes_read;
+	char tmp_buf[64];
+	struct fs_file_t zfp = {0};
+
+	fs_file_t_init(&zfp);
+	ret = fs_open(&zfp, "/tmo/aws_session.txt", FS_O_READ);
+	if (ret) {
+		printk("Failed to read /tmo/aws_session.txt\n");
+		return 1;
+	}
+	bytes_read = fs_read(&zfp, tmp_buf, sizeof(tmp_buf));
+	if (bytes_read < 8) {
+		printk("Invalid access code\n");
+		return 2;
+	}
+
+	fs_close(&zfp);
+#endif /* CONFIG_TMO_TEST_MFG_CHECK_ACCESS_CODE */
+	return 0;
+}

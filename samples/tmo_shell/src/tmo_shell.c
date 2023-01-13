@@ -101,6 +101,7 @@ extern int buzzer_test();
 extern int led_test();
 extern int misc_test();
 extern int fw_test();
+extern int ac_test();
 
 const struct shell *shell = NULL;
 
@@ -2096,15 +2097,21 @@ int cmd_mfg_test(const struct shell *shell, size_t argc, char **argv)
 #endif /* CONFIG_TMO_TEST_MFG_CHECK_GOLDEN */
 
 	const struct device * pwm_dev = device_get_binding("pwmleds");
-
-	if (rc == 0 && !fw_test()) {
+	bool fw_test_passed = !fw_test();
+	bool acc_code_test_passed = !ac_test();
+	if (rc == 0 && fw_test_passed && acc_code_test_passed) {
 		led_on(pwm_dev, LED_PWM_GREEN); // Green LED
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_INFO, "TESTS PASSED\n");
-	} else if (rc == 0) {
+	} else if (rc == 0 && !fw_test_passed) {
 		led_on(pwm_dev, LED_PWM_BLUE); // Blue LED
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_WARNING, "FIRMWARE OUT OF DATE\n");
 		restore_led = LED_PWM_BLUE;
 		k_timer_start(&led_blink_timer, K_MSEC(500), K_SECONDS(1));
+	} else if (rc == 0 && !acc_code_test_passed) {
+		led_on(pwm_dev, LED_PWM_BLUE); // Blue LED
+		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_WARNING, "ACCESS CODE FAILURE\n");
+		restore_led = LED_PWM_BLUE;
+		k_timer_start(&led_blink_timer, K_MSEC(1), K_SECONDS(1));
 	} else {
 		led_on(pwm_dev, LED_PWM_RED); // Red LED
 		restore_led = LED_PWM_RED;
