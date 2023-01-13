@@ -48,8 +48,10 @@ int cmd_pmsysoff(const struct shell *shell, int argc, char** argv)
 {
 	#if CONFIG_PM_DEVICE
 	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(rs9116w));
+	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
 	dev = DEVICE_DT_GET(DT_NODELABEL(sonycxd5605));
+	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
 	dev = DEVICE_DT_GET(DT_NODELABEL(murata_1sc));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
@@ -67,8 +69,10 @@ int cmd_pmsysfulloff(const struct shell *shell, int argc, char** argv)
 {
 	#if CONFIG_PM_DEVICE
 	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(rs9116w));
+	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
 	dev = DEVICE_DT_GET(DT_NODELABEL(sonycxd5605));
+	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
 	pm_device_action_run(dev, PM_DEVICE_ACTION_TURN_OFF);
 	dev = DEVICE_DT_GET(DT_NODELABEL(murata_1sc));
 	pm_device_action_run(dev, PM_DEVICE_ACTION_SUSPEND);
