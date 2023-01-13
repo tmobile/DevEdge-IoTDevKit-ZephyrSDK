@@ -54,6 +54,7 @@ typedef int sec_tag_t;
 #include "tmo_shell.h"
 #include "tmo_sntp.h"
 #include "tmo_modem.h"
+#include "board.h"
 
 #if CONFIG_TMO_SHELL_BUILD_EK
 #include "ek18/src/kermit_cmd.h"
@@ -1962,10 +1963,12 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	uint8_t fault= 0;
 	shell_print(shell, "Discharging battery, this will take a while...");
 
-	led_on(device_get_binding("pwmleds"), 0);
-	led_on(device_get_binding("pwmleds"), 1);
-	led_on(device_get_binding("pwmleds"), 2);
-	led_on(device_get_binding("pwmleds"), 3);
+#ifdef LED_PWM_WHITE
+	led_on(device_get_binding("pwmleds"), LED_PWM_WHITE);
+#endif /* LED_PWM_WHITE */
+	led_on(device_get_binding("pwmleds"), LED_PWM_RED);
+	led_on(device_get_binding("pwmleds"), LED_PWM_GREEN);
+	led_on(device_get_binding("pwmleds"), LED_PWM_BLUE);
 
 	do {
 		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
@@ -2052,13 +2055,26 @@ int golden_check()
 
 bool light_on;
 
-
+int restore_led;
 static void led_blnk_tmr_f(struct k_timer *timer_id)
 {
 	if (light_on) {
-		led_off(device_get_binding("pwmleds"), 0);
+#ifdef LED_PWM_WHITE
+			led_off(device_get_binding("pwmleds"), LED_PWM_WHITE);
+#else
+			led_off(device_get_binding("pwmleds"), LED_PWM_RED);
+			led_off(device_get_binding("pwmleds"), LED_PWM_GREEN);
+			led_off(device_get_binding("pwmleds"), LED_PWM_BLUE);
+			led_on(device_get_binding("pwmleds"), restore_led);
+#endif /* LED_PWM_WHITE */
 	} else {
-		led_on(device_get_binding("pwmleds"), 0);
+#ifdef LED_PWM_WHITE
+			led_on(device_get_binding("pwmleds"), LED_PWM_WHITE);
+#else
+			led_on(device_get_binding("pwmleds"), LED_PWM_RED);
+			led_on(device_get_binding("pwmleds"), LED_PWM_GREEN);
+			led_on(device_get_binding("pwmleds"), LED_PWM_BLUE);
+#endif /* LED_PWM_WHITE */
 	}
 	light_on = !light_on;
 }
@@ -2082,14 +2098,16 @@ int cmd_mfg_test(const struct shell *shell, size_t argc, char **argv)
 	const struct device * pwm_dev = device_get_binding("pwmleds");
 
 	if (rc == 0 && !fw_test()) {
-		led_on(pwm_dev, 2); // Green LED
+		led_on(pwm_dev, LED_PWM_GREEN); // Green LED
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_INFO, "TESTS PASSED\n");
 	} else if (rc == 0) {
-		led_on(pwm_dev, 3); // Blue LED
+		led_on(pwm_dev, LED_PWM_BLUE); // Blue LED
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_WARNING, "FIRMWARE OUT OF DATE\n");
+		restore_led = LED_PWM_BLUE;
 		k_timer_start(&led_blink_timer, K_MSEC(500), K_SECONDS(1));
 	} else {
-		led_on(pwm_dev, 1); // Red LED
+		led_on(pwm_dev, LED_PWM_RED); // Red LED
+		restore_led = LED_PWM_RED;
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_ERROR, "TESTS FAILED\n");
 		k_timer_start(&led_blink_timer, K_MSEC(500), K_MSEC(500));
 	}
@@ -2342,6 +2360,12 @@ int cmd_tmo_cert_modem_load(const struct shell* shell, int argc, char **argv)
 }
 #endif
 
+int cmd_hwid(const struct shell* shell, int argc, char **argv)
+{
+	shell_print(shell, "HWID Value = %d", read_hwid());
+	return 0;
+}
+
 SHELL_STATIC_SUBCMD_SET_CREATE(certs_sub,
 		SHELL_CMD(dld, NULL, "Download certificates", cmd_tmo_cert_dld),
 		SHELL_CMD(info, NULL, "Print certificate", cmd_tmo_cert_info),
@@ -2416,6 +2440,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_tmo,
 		SHELL_CMD(file, &tmo_file_sub, "File commands", NULL),
 		SHELL_CMD(gnssversion, NULL, "Get GNSS chip version", cmd_gnss_version),
 		SHELL_CMD(http, NULL, "Get http URL", cmd_http),
+		SHELL_CMD(hwid, NULL, "Read the HWID divider voltage", cmd_hwid),
 		SHELL_CMD(ifaces, NULL, "List network interfaces", cmd_list_ifaces),
 		SHELL_CMD(json, &tmo_json_sub, "JSON data options", NULL),
 #if CONFIG_TMO_SHELL_BUILD_EK
@@ -2455,9 +2480,9 @@ static void count_ifaces(struct net_if *iface, void *user_data)
 
 void tmo_shell_main (void)
 {
-
 	net_if_foreach(count_ifaces, NULL);
 	ext_flash_dev = device_get_binding(FLASH_DEVICE);
+
 	if (!ext_flash_dev) {
 		printf("SPI NOR external flash driver %s was not found!\n", FLASH_DEVICE);
 		exit(-1);
@@ -2478,7 +2503,6 @@ void tmo_shell_main (void)
 	mountfs();
 
 	cxd5605_init();
-	initPK0();
 	initADC();
 	shell = shell_backend_uart_get_ptr();
 #ifdef CONFIG_WIFI

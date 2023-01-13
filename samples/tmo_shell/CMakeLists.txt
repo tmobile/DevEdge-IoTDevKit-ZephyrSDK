@@ -7,6 +7,8 @@ cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(tmo_shell)
 
+zephyr_include_directories(${BOARD_DIR})
+
 target_include_directories(app PRIVATE ${ZEPHYR_BASE}/subsys/ PRIVATE ${ZEPHYR_BASE}/drivers/modem/ PRIVATE ${ZEPHYR_BASE}/drivers/wifi/rs9116w)
 FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE src/tmo_shell.c)
