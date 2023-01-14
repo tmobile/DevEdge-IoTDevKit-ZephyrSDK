@@ -13,7 +13,6 @@
 #include <zephyr/pm/policy.h>
 #include <zephyr/pm/state.h>
 
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(wake_sleep, CONFIG_PM_LOG_LEVEL);
 
@@ -21,19 +20,15 @@ LOG_MODULE_DECLARE(wake_sleep, CONFIG_PM_LOG_LEVEL);
  * There's undoubtably a better way to disable the LOG_INF and LOG_WRN fuctions;
  * nevertheless, this works.
  */
-#define LOG_INF_DISABLE 1
-#if LOG_INF_DISABLE
+#if IS_ENABLED(CONFIG_WAKE_SLEEP_LOG_INF_DISABLE)
 #undef LOG_INF
 #define LOG_INF(fmt, ...)
 #endif
-#undef LOG_INF_DISABLE
 
-#define LOG_WRN_DISABLE 0
-#if LOG_WRN_DISABLE
+#if IS_ENABLED(CONFIG_WAKE_SLEEP_LOG_WRN_DISABLE)
 #undef LOG_WRN
 #define LOG_WRN(fmt, ...)
 #endif
-#undef LOG_WRN_DISABLE
 
 /*
  * TODO: Remove this temporary workaround, which is for debugging purposes only).
@@ -52,22 +47,19 @@ LOG_MODULE_DECLARE(wake_sleep, CONFIG_PM_LOG_LEVEL);
 /*
  * Timer defines
  */
-#define TIMER_ENABLE 0
-#if TIMER_ENABLE
+#if IS_ENABLED(CONFIG_WAKE_SLEEP_TIMER_ENABLE)
 #define TIMER_DURATION K_SECONDS(30)
 #define TIMER_PERIOD   K_SECONDS(60)
 #define TIMER_STOP_FN NULL
 #endif
-#undef TIMER_ENABLE
 
 /*
  * Deep-sleep defines
  */
-#define SLEEP_ENABLE 0
-#if SLEEP_ENABLE
+#if IS_ENABLED(CONFIG_WAKE_SLEEP_SLEEP_ENABLE)
 #define SLEEP_DURATION	K_MSEC(1)
+#define SLEEP_MODE PM_STATE_RUNTIME_IDLE
 #endif
-#undef SLEEP_ENABLE
 
 
 /*
@@ -199,7 +191,11 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 		gate_leds(device_action[action_index].value);
 		printf("%s(): awake\n", __func__);
 
-
+		// if (PM_DEVICE_ACTION_TURN_ON == device_action[action_index].value) {
+		// 	gate_leds(-1);
+		// 	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
+		// 	k_sleep(K_MSEC(1));
+		// }
 		printf("device_action[%d].value: %d, device_action[%d].name: %s\n", action_index,
 			device_action[action_index].value, action_index,
 			device_action[action_index].name);
@@ -208,7 +204,7 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 			enum pm_device_state pm_device_state;
 
 			/*
-			 * ignore busy devices, wake up source and devices with
+			 * Ignore busy devices, wake up source and devices with
 			 * runtime PM enabled.
 			 */
 			if (devices[ii].pm != NULL &&
@@ -348,11 +344,11 @@ static void setup(void)
  */
 void main(void)
 {
-	/* Print usage information */
-	greeting();
-
 	/* Set up hardware and interrupt service routines */
 	setup();
+
+	/* Print usage information */
+	greeting();
 
 	/* Create the power management thread, and schedule it for execution. */
 	k_thread_create(
@@ -369,7 +365,7 @@ void main(void)
 #endif
 
 #ifdef SLEEP_DURATION
-	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
+	pm_state_force(0u, &(struct pm_state_info){SLEEP_MODE, 0, 0});
 	k_sleep(SLEEP_DURATION);
 #endif
 }

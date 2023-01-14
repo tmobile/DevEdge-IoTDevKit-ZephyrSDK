@@ -1,0 +1,23 @@
+# Copyright (c) 2022 T-Mobile USA, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "wake_sleep application settings"
+
+config WAKE_SLEEP_LOG_INF_DISABLE
+    bool "Disable the informational log output"
+    default y
+
+config WAKE_SLEEP_LOG_WRN_DISABLE
+    bool "Disable the warning log output"
+    default n
+
+config WAKE_SLEEP_TIMER_ENABLE
+    bool
+    default n
+
+config WAKE_SLEEP_SLEEP_ENABLE
+    bool
+    default y
+
+source "Kconfig.zephyr"
