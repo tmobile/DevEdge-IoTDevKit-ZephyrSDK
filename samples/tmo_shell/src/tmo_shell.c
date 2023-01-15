@@ -1583,7 +1583,7 @@ void print_set_modem_edrx_usage(const struct shell *shell)
 	shell_print(shell, "tmo modem <iface> edrx <mode> <Act-type> <edrx value>");
 	shell_print(shell, "mode: 0 - off, 1 - on, 2 - unsolicited messages enabled");
 	shell_print(shell, "Act-Type: 4- LTE,LTE-M,  5 - NB-IoT");
-	shell_print(shell, "edrx values: 2,3,5,9,10,11,12,13,14, or 15");
+	shell_print(shell, "edrx values: 1 to 15");
 }
 
 void print_set_modem_psm_usage(const struct shell *shell)
@@ -1636,8 +1636,7 @@ int process_cli_cmd_modem_edrx(const struct shell *shell, size_t argc, char **ar
 		u->edrx.act_type = strtol(argv[4], NULL, 10);
 		u->edrx.time_mask = strtol(argv[5], NULL, 10);
 		if ( (u->edrx.mode >= 0 && u->edrx.mode <=2) && (u->edrx.act_type >=1 && u->edrx.act_type <=5) &&
-				((u->edrx.time_mask  == 2 || u->edrx.time_mask == 3 || u->edrx.time_mask == 5) ||
-				 ( u->edrx.time_mask >= 9 && u->edrx.time_mask <= 15))) {
+				((u->edrx.time_mask >= 1 && u->edrx.time_mask <= 15))) {
 			shell_print(shell, "Set eDRX mode: %d, act_type: %d, value: %d",
 					u->edrx.mode, u->edrx.act_type, u->edrx.time_mask);
 			tmo_set_modem(AT_MODEM_EDRX_SET, (union params_cmd*) u, sd);
