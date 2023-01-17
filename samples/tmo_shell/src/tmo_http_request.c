@@ -432,7 +432,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 		if (ret == -1) {
 			zsock_close(sock);
 			sock = create_http_socket(tls, host, res, iface);
-			int profile = 255;
+			profile = 255;
 			zsock_setsockopt(sock, SOL_TLS, TLS_MURATA_USE_PROFILE, &profile, sizeof(profile));
 			ret = zsock_connect(sock, res->ai_addr, res->ai_addrlen);
 			user_trust = true;
