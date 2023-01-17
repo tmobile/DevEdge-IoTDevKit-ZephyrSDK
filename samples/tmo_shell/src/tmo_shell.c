@@ -1955,22 +1955,44 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 {
-	uint8_t percent = 0;
+	uint8_t percent = 100;
+	uint8_t old_percent = 0;
 	uint32_t millivolts = 0;
 	uint8_t battery_attached = 0;
 	uint8_t charging = 0;
         uint8_t vbus = 0;
 	uint8_t fault= 0;
-	shell_print(shell, "Discharging battery, this will take a while...");
 
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	if (battery_attached !=  0) {
+		millivolts = read_battery_voltage();
+		millivolts_to_percent(millivolts, &percent);
+		old_percent = percent;
+	} else {
+		shell_error(shell, "Battery not attached, aborting...");
+		return -ENOEXEC;
+	}
+
+	shell_print(shell, "Battery level is currently %d%%", percent);
+
+	if (charging) {
+		shell_warn(shell, "Battery is currently charging, unplug USB-C to discharge!");
+	} else if (percent > 60) {
+		shell_print(shell, "Discharging battery, this may take a while...");
+	}
+
+	if (percent < 60) {
+		shell_warn(shell, "Battery already below 60%% (%d%%)", percent);
+	} else {
 #ifdef LED_PWM_WHITE
-	led_on(device_get_binding("pwmleds"), LED_PWM_WHITE);
+		led_on(device_get_binding("pwmleds"), LED_PWM_WHITE);
 #endif /* LED_PWM_WHITE */
-	led_on(device_get_binding("pwmleds"), LED_PWM_RED);
-	led_on(device_get_binding("pwmleds"), LED_PWM_GREEN);
-	led_on(device_get_binding("pwmleds"), LED_PWM_BLUE);
+		led_on(device_get_binding("pwmleds"), LED_PWM_RED);
+		led_on(device_get_binding("pwmleds"), LED_PWM_GREEN);
+		led_on(device_get_binding("pwmleds"), LED_PWM_BLUE);
+	}
 
-	do {
+	while (percent > 60) {
 		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 		if (battery_attached !=  0) {
 			millivolts = read_battery_voltage();
@@ -1979,18 +2001,17 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 			shell_error(shell, "Battery not attached, aborting...");
 			return -ENOEXEC;
 		}
-		shell_print(shell, "Discharging battery (%d%%)...", percent);
-		k_sleep(K_SECONDS(30));
-	} while (percent >= 60);
-	if (percent < 5) {
-		shell_warn(shell, "Battery below 50%% (%d%%)", percent);
+		if ((abs(old_percent - percent) > 5) && ((percent % 5) == 0)) {
+			shell_print(shell, "Battery level is now (%d%%)...", percent);
+			old_percent = percent;
+		}
 	}
 
+	shell_print(shell, "Battery is discharged (%d%%), shutting down...", percent);
 	cmd_pmsysfulloff(shell, 0, NULL);
 
 	return 0;
 }
-
 
 int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 {
