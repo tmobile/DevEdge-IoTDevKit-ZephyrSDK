@@ -33,4 +33,8 @@ config TMO_TEST_MFG_CHECK_GOLDEN
     bool "Check modem type is golden"
     default y
 
+config TMO_TEST_MFG_CHECK_ACCESS_CODE
+    bool "Check access code is present"
+    default y
+
 source "Kconfig.zephyr"
