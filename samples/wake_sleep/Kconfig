@@ -4,20 +4,12 @@
 
 mainmenu "wake_sleep application settings"
 
-config WAKE_SLEEP_LOG_INF_DISABLE
-    bool "Disable the informational log output"
-    default y
+config WAKE_TIMER_DURATION
+    int "Wake timer timeout in seconds, 0 = diaabled"
+    default 0
 
-config WAKE_SLEEP_LOG_WRN_DISABLE
-    bool "Disable the warning log output"
-    default n
-
-config WAKE_SLEEP_TIMER_ENABLE
-    bool
-    default n
-
-config WAKE_SLEEP_SLEEP_ENABLE
-    bool
-    default y
+config WAKE_TIMER_PERIOD
+    int "Wake timer period in seconds, 0 = disabled"
+    default 0
 
 source "Kconfig.zephyr"

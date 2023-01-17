@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
+ * TODO: Replace this interim implementation with the system default, assuming it exists.
+ */
+
 #include "strerror.h"
 #include <stdlib.h>
 /*

@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
+ * TODO: Replace this interim implementation with the system default, assuming it exists.
+ */
+
 #ifndef STRERROR_WORKAROUND_H_
 #define STRERROR_WORKAROUND_H_
 
@@ -21,6 +25,6 @@ const char *strerror(int error_value);
 
 #ifdef __cplusplus
 }
-#endif  /* __cplusplus */
+#endif /* __cplusplus */
 
-#endif  /* STRERROR_WORKAROUND_H_ */
+#endif /* STRERROR_WORKAROUND_H_ */
