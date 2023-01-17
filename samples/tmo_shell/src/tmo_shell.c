@@ -1945,9 +1945,7 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 	uint8_t fault = 0;
 
 	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (battery_attached !=  0) {
-		millivolts = read_battery_voltage();
-	}
+	millivolts = read_battery_voltage();
 	shell_print(shell, "\tBattery voltage %d.%03dV", millivolts/1000, millivolts%1000);
 
 	return millivolts;
@@ -2023,10 +2021,8 @@ int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 	uint8_t fault= 0;
 
 	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (battery_attached !=  0) {
-		millivolts = read_battery_voltage();
-		millivolts_to_percent(millivolts, &percent);
-	}
+	millivolts = read_battery_voltage();
+	millivolts_to_percent(millivolts, &percent);
 	shell_print(shell, "\tBattery level %d percent", percent);
 	return 0;
 }
