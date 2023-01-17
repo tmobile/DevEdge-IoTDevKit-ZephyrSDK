@@ -6,7 +6,7 @@ mainmenu "wake_sleep application settings"
 
 config WAKE_SLEEP_LOG_INF_DISABLE
     bool "Disable the informational log output"
-    default y
+    default n
 
 config WAKE_SLEEP_LOG_WRN_DISABLE
     bool "Disable the warning log output"
@@ -14,7 +14,7 @@ config WAKE_SLEEP_LOG_WRN_DISABLE
 
 config WAKE_SLEEP_TIMER_ENABLE
     bool
-    default n
+    default y
 
 config WAKE_SLEEP_SLEEP_ENABLE
     bool

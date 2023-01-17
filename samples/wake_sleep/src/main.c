@@ -59,6 +59,9 @@ LOG_MODULE_DECLARE(wake_sleep, CONFIG_PM_LOG_LEVEL);
 #if IS_ENABLED(CONFIG_WAKE_SLEEP_SLEEP_ENABLE)
 #define SLEEP_DURATION	K_MSEC(1)
 #define SLEEP_MODE PM_STATE_RUNTIME_IDLE
+// #define SLEEP_MODE PM_STATE_SUSPEND_TO_IDLE
+// #define SLEEP_MODE PM_STATE_STANDBY
+// #define SLEEP_MODE PM_STATE_SUSPEND_TO_RAM
 #endif
 
 
@@ -166,16 +169,17 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 		enum pm_device_action value;
 		const char *name;
 	} device_action[] = {
-		STRUCT_INIT(PM_DEVICE_ACTION_RESUME),
 		STRUCT_INIT(PM_DEVICE_ACTION_SUSPEND),
 		STRUCT_INIT(PM_DEVICE_ACTION_TURN_OFF),
 		STRUCT_INIT(PM_DEVICE_ACTION_TURN_ON),
+		STRUCT_INIT(PM_DEVICE_ACTION_RESUME)
 	};
 #undef STRUCT_INIT
 	const size_t device_action_size = sizeof device_action / sizeof *device_action;
 
 	const struct device *devices;
 	const size_t n_devices = z_device_get_all_static(&devices);
+#if 0
 	struct {
 		struct action {
 			bool probed:1, supported:1;
@@ -183,6 +187,8 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 	} device_info[n_devices];
 
 	memset(&device_info, 0, sizeof device_info);
+#endif
+
 	for (unsigned char action_index = 0; true;
 	     action_index = (action_index + 1) % device_action_size) {
 		gate_leds(-1);
@@ -191,11 +197,13 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 		gate_leds(device_action[action_index].value);
 		printf("%s(): awake\n", __func__);
 
-		// if (PM_DEVICE_ACTION_TURN_ON == device_action[action_index].value) {
-		// 	gate_leds(-1);
-		// 	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
-		// 	k_sleep(K_MSEC(1));
-		// }
+#if 0
+		if (PM_DEVICE_ACTION_TURN_ON == device_action[action_index].value) {
+			gate_leds(-1);
+			pm_state_force(0u, &(struct pm_state_info){SLEEP_MODE, 0, 0});
+			k_sleep(K_MSEC(1));
+		}
+#endif
 		printf("device_action[%d].value: %d, device_action[%d].name: %s\n", action_index,
 			device_action[action_index].value, action_index,
 			device_action[action_index].name);
@@ -207,13 +215,14 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 			 * Ignore busy devices, wake up source and devices with
 			 * runtime PM enabled.
 			 */
-			if (devices[ii].pm != NULL &&
-			    (pm_device_is_busy(&devices[ii]) ||
-			    //  pm_device_state_is_locked(&devices[ii]) ||
-			     pm_device_wakeup_is_enabled(&devices[ii]) ||
-			     pm_device_runtime_is_enabled(&devices[ii]))) {
+			if (devices[ii].pm == NULL ||
+				pm_device_is_busy(&devices[ii]) ||
+				pm_device_runtime_is_enabled(&devices[ii]) /* ||
+			    pm_device_wakeup_is_enabled(&devices[ii]) ||
+				pm_device_state_is_locked(&devices[ii]) || */) {
 				continue;
 			}
+#if 0
 			if (!device_info[ii]
 				     .action[device_action[action_index].value]
 				     .probed) {
@@ -236,12 +245,17 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 					device_info[ii].action[PM_DEVICE_ACTION_TURN_ON] =
 						(struct action){.probed = true, .supported = false};
 					break;
+				/*
 				case -ENOTSUP:
 					device_info[ii]
 					   .action[device_action[action_index].value] =
 					   (struct action){.probed = true, .supported = false};
 					break;
+				*/
 				default:
+					device_info[ii]
+					   .action[device_action[action_index].value] =
+					   (struct action){.probed = true, .supported = true};
 					LOG_WRN("Unexpected return value: %d (%s)", ret,
 						strerror(ret));
 					break;
@@ -257,7 +271,9 @@ static void pm_thread(void *this_thread, void *p2, void *p3)
 			} else {
 				continue;
 			}
-
+#else
+			ret = pm_device_action_run(&devices[ii], device_action[action_index].value);
+#endif
 			(void) pm_device_state_get(&devices[ii], &pm_device_state);
 
 			if (ret) {
