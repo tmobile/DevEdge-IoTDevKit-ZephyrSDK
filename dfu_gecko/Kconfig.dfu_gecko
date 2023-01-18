@@ -5,7 +5,7 @@
 # SPDX-Licnse-Identifiere: Apache-2.0
 #
 
-config SHELL_DFU_GECKO_UPDATE
+config DFU_GECKO_LIB
         bool "DFU Gecko Update Library"
 	help
            Enable DFU Gecko update library inclusion
