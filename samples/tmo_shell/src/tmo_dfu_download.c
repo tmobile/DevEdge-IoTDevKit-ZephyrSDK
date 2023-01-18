@@ -18,7 +18,6 @@ LOG_MODULE_REGISTER(tmo_dfu_download, LOG_LEVEL_DBG);
 
 #include "ca_certificate.h"
 #include "tmo_dfu_download.h"
-#include "dfu_gecko.h"
 #include "dfu_murata_1sc.h"
 #include "dfu_rs9116w.h"
 #include "tmo_shell.h"
@@ -46,7 +45,7 @@ char *dfu_target_str(enum dfu_tgts dfu_tgt) {
 	switch(dfu_tgt) {
 		case DFU_GECKO: return "MCU";
 		case DFU_MODEM: return "Modem";
-		default: 
+		default:
 			return "WiFi";
 	}
 }
@@ -150,17 +149,17 @@ int dfu_download(const struct dfu_file_t *dfu_file, enum dfu_tgts dfu_tgt)
 	return totalbytes;
 }
 
-void generate_mcu_filename(struct dfu_file_t *dfu_files_mcu, char *base, int slots, char *version) 
+void generate_mcu_filename(struct dfu_file_t *dfu_files_mcu, char *base, int slots, char *version)
 {
     int total_files = (slots*2) + 1;
-    
+
     sprintf(dfu_files_mcu[0].desc, "%s 1/%d", base, total_files);
 	sprintf(dfu_files_mcu[0].lfile, "/tmo/zephyr.bin");
 	sprintf(dfu_files_mcu[0].rfile, "%s.%s.bin",base,version);
 	memset(dfu_files_mcu[0].sha1, 0, DFU_SHA1_LEN);
 
     for (int i = 1; i <= slots; i++) {
-            
+
 		/* BIN	*/
 		sprintf(dfu_files_mcu[i].desc, "%s %d/%d", base ,i+1, total_files);
 		sprintf(dfu_files_mcu[i].lfile, "/tmo/zephyr.slot%d.bin", i-1);
@@ -200,6 +199,7 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 		case DFU_MODEM:
 			sprintf((char *)dfu_files_modem[0].desc, "%s",base);
 			sprintf((char *)dfu_files_modem[0].rfile, "%s.ua",base);
+			sprintf((char *)dfu_files_modem[0].lfile, "/tmo/%s.ua",base);
 			dfu_files = dfu_files_modem;
 
 			sprintf(base_url_s,"%smurata_1sc/",user_base_url_s);
@@ -250,7 +250,7 @@ int set_dfu_iface_type(int iface)
 {
 	if (iface < 1 || iface > 2) {
 		printf("error: invalid iface\n");
-		printf("use 1 for modem, 2 for wifi\n");
+		printf("use 1 for modem, 2 for wifi");
 		return -1;
 	}
 

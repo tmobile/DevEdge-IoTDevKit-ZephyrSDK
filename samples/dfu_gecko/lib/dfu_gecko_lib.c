@@ -18,9 +18,10 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
-#include <mbedtls/sha1.h>
+#include "mbedtls/sha1.h"
+#include "dfu_gecko_lib.h"
 
-#include "tmo_dfu_download.h"
+//#include "tmo_dfu_download.h"
 
 // SHAs are set to 0 since they are unknown before a build
 const struct dfu_file_t dfu_files_mcu[] = {
@@ -92,15 +93,11 @@ static int requested_slot_to_upgrade = -1;
 extern int read_image_from_flash(uint8_t *flash_read_buffer, int readBytes, uint32_t flashStartSector, int ImageFileNum);
 
 static struct fs_file_t geckofile = {0};
-static char * gecko_slot0_name = "/tmo/zephyr.slot0.bin";
-static char * gecko_slot1_name = "/tmo/zephyr.slot1.bin";
 static int readbytes = 0;
 static int totalreadbytes = 0;
 static int totalwritebytes = 0;
 
 static struct fs_file_t gecko_sha1_file = {0};
-static char * gecko_slot0_sha1_name = "/tmo/zephyr.slot0.bin.sha1";
-static char * gecko_slot1_sha1_name = "/tmo/zephyr.slot1.bin.sha1";
 static mbedtls_sha1_context gecko_sha1_ctx;
 static unsigned char gecko_sha1_output[DFU_SHA1_LEN];
 static unsigned char gecko_expected_sha1[DFU_SHA1_LEN*2];
@@ -211,7 +208,7 @@ static int slot_version_cmp(struct image_version *ver1,
 
 int get_gecko_fw_version (void)
 {
-	int slot0_has_image = 0; 
+	int slot0_has_image = 0;
 	int slot1_has_image = 0;
 	int active_slot = -1;
 	uint32_t page_addr_slot_0 = GECKO_IMAGE_SLOT_0_SECTOR;
@@ -229,7 +226,7 @@ int get_gecko_fw_version (void)
 	memcpy(&slot1_hdr, &read_buf, IMAGE_HEADER_SIZE);
 
 	if (slot0_hdr.ih_magic == IMAGE_MAGIC) {
-		printf("Pearl Gecko Slot 0 FW Version = %u.%u.%u+%u\n", 
+		printf("Pearl Gecko Slot 0 FW Version = %u.%u.%u+%u\n",
 				slot0_hdr.ih_ver.iv_major,
 				slot0_hdr.ih_ver.iv_minor,
 				slot0_hdr.ih_ver.iv_revision,
@@ -419,43 +416,48 @@ static int file_read_flash(uint32_t offset)
 }
 
 static uint8_t fw_upgrade_done = 0;
-int32_t dfu_gecko_write_image(int slot_to_upgrade)
+int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_file)
 {
+	char requested_binary_file[DFU_FILE_LEN];
+	char requested_sha_file[DFU_FILE_LEN];
 	requested_slot_to_upgrade = slot_to_upgrade;
+	
+	strcpy(requested_binary_file, bin_file);
+	strcpy(requested_sha_file, sha_file);
 
 	printf("Checking for presence of correct Gecko slot %d image file\n", slot_to_upgrade);
 	if (slot_to_upgrade == 0) {
-		if (fs_open(&geckofile, gecko_slot0_name, FS_O_READ) != 0) {
-			printf("The Gecko FW file %s is missing\n", "/tmo/zephyr.slot0.bin");
+		if (fs_open(&geckofile, requested_binary_file, FS_O_READ) != 0) {
+			printf("The Gecko FW file %s is missing\n", requested_binary_file);
 			return 1;
 		}
 		else {
-			printf("The required Gecko FW file %s is present\n", "/tmo/zephyr.slot0.bin");
+			printf("The required Gecko FW file %s is present\n", requested_binary_file);
 		}
 
-		if (fs_open(&gecko_sha1_file, gecko_slot0_sha1_name, FS_O_READ) != 0) {
-			printf("The SHA1 digest file %s is missing\n", "/tmo/zephyr.slot0.bin.sha1");
+		if (fs_open(&gecko_sha1_file, requested_sha_file, FS_O_READ) != 0) {
+			printf("The SHA1 digest file %s is missing\n",requested_sha_file);
 			return 1;
 		}
 		else {
-			printf("The required SHA1 Digest file %s is present\n", "/tmo/zephyr.slot0.bin.sha1");
+			printf("The required SHA1 Digest file %s is present\n", requested_sha_file);
 		}
 	}
 	else {
-		if (fs_open(&geckofile, gecko_slot1_name, FS_O_READ) != 0) {
-			printf("The file %s is missing\n", "/tmo/zephyr.slot1.bin");
+		if (fs_open(&geckofile, requested_binary_file, FS_O_READ) != 0) {
+			printf("The file %s is missing\n", requested_binary_file);
 			return 1;
 		}
 		else {
-			printf("The required Gecko FW file %s is present\n", "/tmo/zephyr.slot1.bin");
+			printf("The required Gecko FW file %s is present\n", requested_binary_file);
 		}
 
-		if (fs_open(&gecko_sha1_file, gecko_slot1_sha1_name, FS_O_READ) != 0) {
-			printf("The Gecko FW file %s is missing\n", "/tmo/zephyr.slot1.bin.sha1");
+		if (fs_open(&gecko_sha1_file, requested_sha_file, FS_O_READ) != 0) {
+			printf("The Gecko FW file %s is missing\n", requested_sha_file);
 			return 1;
 		}
 		else {
-			printf("The required SHA1 Digest file %s is present\n", "/tmo/zephyr.slot1.bin.sha1");
+			printf("The required SHA1 Digest file %s is present\n", requested_sha_file);
 		}
 	}
 
@@ -578,10 +580,10 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade)
 	return status;
 } /* end of routine */
 
-int dfu_mcu_firmware_upgrade(int slot_to_upgrade)
+int dfu_mcu_firmware_upgrade(int slot_to_upgrade, char *bin_file, char *sha_file)
 {
 	int ret = 0;
 	printf("*** Performing the Pearl Gecko FW update ***\n");
-	ret = dfu_gecko_write_image(slot_to_upgrade);
+	ret = dfu_gecko_write_image(slot_to_upgrade, bin_file, sha_file);
 	return ret;
 }

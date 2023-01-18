@@ -9,7 +9,7 @@
 
 #include "dfu_murata_1sc.h"
 #include "dfu_rs9116w.h"
-#include "dfu_gecko.h"
+#include "dfu_gecko_lib.h"
 #include "tmo_shell.h"
 #include <zephyr/shell/shell.h>
 
@@ -19,6 +19,7 @@ enum dfu_tgts {
 	DFU_9116W
 };
 
+#if 0
 #define DFU_DESC_LEN 64
 #define DFU_FILE_LEN 64
 #define DFU_SHA1_LEN 20
@@ -30,6 +31,7 @@ struct dfu_file_t {
 	char rfile[DFU_FILE_LEN];
 	char sha1[DFU_SHA1_LEN];
 };
+#endif
 
 int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *filename, char *version);
 int set_dfu_base_url(char *base_url);
