@@ -13,9 +13,9 @@ jobs:
     steps:
       - name: build-tmo-shell
       - run: |
-        pip3 install --user -U west
-        west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git zephyrproject
-        pushd zephyrproject
-        west update
-        popd
-        printenv
+          pip3 install --user -U west
+          west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git zephyrproject
+          pushd zephyrproject
+          west update
+          popd
+          printenv
