@@ -231,26 +231,14 @@ static void response_cb_download(struct http_response *rsp,
 		enum http_final_call final_data, void *user_data)
 {
 	struct fs_file_t *file = user_data;
-	if (rsp->body_frag_start != rsp->recv_buf && !http_content_length) {
-		// rsp->recv_buf
-		int header_len = rsp->body_found ? (rsp->body_frag_start - rsp->recv_buf) : rsp->recv_buf_len;
-		char *header = rsp->recv_buf;
-		char *old_header = NULL;
-		char *cl_header = NULL;
-		while (header_len > 0 && header) {
-			if (!strncasecmp(header, "Content-Length", sizeof("Content-Length") - 1)){
-				cl_header = header;
-				break;
-			}
-			old_header = header;
-			header = memchr(header, '\n', header_len);
-			header++;
-			header_len -= (header - old_header);	
-		}
-		if (cl_header) {
-			cl_header = memchr(cl_header, ':', header_len);
-			cl_header++;
-			http_content_length = strtol(cl_header, NULL, 10);
+
+	if (rsp->http_status_code < 200 && rsp->http_status_code > 299) {
+		printf("\nHTTP Status %d: %s\n", rsp->http_status_code, rsp->http_status);
+	}
+
+	if (!http_content_length) {
+		if (rsp->content_length) {
+			http_content_length = rsp->content_length;
 			printf("\nExpecting %d bytes\n", http_content_length);
 		}
 	}
@@ -262,7 +250,7 @@ static void response_cb_download(struct http_response *rsp,
 				http_total_written += ret;
 			}
 		}
-		printk(".");
+		printf(".");
 	}
 }
 
