@@ -194,9 +194,8 @@ uint32_t murata_1sc_crc32_finish(uint32_t crc32, size_t len)
 /**
  * @brief Determine the running fw_image_size, CRC32, and SHA1
  */
-static int file_update_check(const int delta_file, uint32_t bytesToRead, uint32_t *crc32 )
+static int file_update_check(const struct dfu_file_t *dfu_file, uint32_t bytesToRead, uint32_t *crc32 )
 {
-	const struct dfu_file_t *dfu_file = &dfu_files_modem[delta_file];
 	readbytes = fs_read(&modemfile, recv_buff_1k, bytesToRead);
 	if (readbytes < 0) {
 		printf("Could not read update file %s\n", dfu_file->lfile);
@@ -208,7 +207,6 @@ static int file_update_check(const int delta_file, uint32_t bytesToRead, uint32_
 		mbedtls_sha1_update(&modem_sha1_ctx, (unsigned char *)recv_buff_1k, readbytes);
 	}
 
-	// printf("\nreadbytes %d totalreadbytes %d\n", readbytes, totalreadbytes);
 	printk(".");
 
 	if (crc32 && (readbytes > 0)) {
@@ -225,9 +223,8 @@ static int file_update_check(const int delta_file, uint32_t bytesToRead, uint32_
 	return readbytes;
 }
 
-static int file_read_flash_hdr(const int delta_file, uint32_t offset)
+static int file_read_flash_hdr(const struct dfu_file_t *dfu_file, uint32_t offset)
 {
-	const struct dfu_file_t *dfu_file = &dfu_files_modem[delta_file];
 	readbytes = fs_read(&modemfile, recv_buff_hdr, UA_HEADER_SIZE );
 	if (readbytes < 0) {
 		printf("Could not read update file %s\n", dfu_file->lfile);
@@ -235,50 +232,11 @@ static int file_read_flash_hdr(const int delta_file, uint32_t offset)
 	}
 
 	totalreadbytes += readbytes;
-	//printf("\nreadbytes %d totalreadbytes %d\n", readbytes, totalreadbytes);
 	return 0;
 }
 
-static int compare_sha1(const int delta_file)
+static int file_read_flash(const struct dfu_file_t *dfu_file, uint32_t bytesToRead)
 {
-	const struct dfu_file_t *dfu_file = &dfu_files_modem[delta_file];
-	const unsigned char *sha1 = dfu_file->sha1;
-
-	mbedtls_sha1_finish(&modem_sha1_ctx, modem_sha1_output);
-	printf("\n\tSHA1 for file %s:\n\t\t", dfu_file->lfile);
-
-	for (int i = 0; i < DFU_SHA1_LEN; i++) {
-		printf("%02x ", modem_sha1_output[i]);
-	}
-	printf("\n");
-
-	printf("\tExpected SHA1:\n\t\t");
-	for (int i = 0; i < DFU_SHA1_LEN; i++) {
-		printf("%02x ", sha1[i]);
-	}
-
-	int sha1_fails = 0;
-	for (int i = 0; i < DFU_SHA1_LEN; i++) {
-		if (modem_sha1_output[i] != sha1[i]) {
-			sha1_fails++;
-			break;
-		}
-	}
-
-	if (sha1_fails) {
-		printf("\n\nSHA1 error: The computed file SHA1 doesn't match expected\n");
-		return -1;
-	}
-	else
-	{
-		printf("\n\tSHA1 matches");
-		return 0;
-	}
-}
-
-static int file_read_flash(const int delta_file, uint32_t bytesToRead)
-{
-	const struct dfu_file_t *dfu_file = &dfu_files_modem[delta_file];
 	readbytes = fs_read(&modemfile, recv_buff_1k, bytesToRead);
 	if (readbytes < 0) {
 		printf("Could not read update file %s\n", dfu_file->lfile);
@@ -303,7 +261,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 			if (res < 0) {
 				printf("GET_FILE_MODE failed\n");
-			} 
+			}
 			break;
 
 		case AT_GET_CHKSUM_ABILITY:
@@ -432,15 +390,13 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 	return res;
 }
 
-static int32_t dfu_modem_write_image(const int delta_file)
+static int32_t dfu_modem_write_image(const struct dfu_file_t *dfu_file)
 {
 	int32_t status = 0;
 
 	printf("\nThis procedure can take up to 10 minutes. System will reboot when done\n");
 	printf("DO NOT REBOOT OR POWER OFF DURING THIS PROCEDURE\n");
 	printf("Otherwise the FW update may fail\n");
-
-	const struct dfu_file_t *dfu_file = &dfu_files_modem[delta_file];
 
 	uint8_t modemFwUpgradeDone = 0;
 	while (!modemFwUpgradeDone) {
@@ -471,20 +427,15 @@ static int32_t dfu_modem_write_image(const int delta_file)
 
 					int notdone = 1;
 					int bytes_read = 0;
-					bytes_read = file_update_check(delta_file, UA_HEADER_SIZE, NULL);
+					bytes_read = file_update_check(dfu_file, UA_HEADER_SIZE, NULL);
 					if (bytes_read == UA_HEADER_SIZE) {
 						while (notdone) {
-							bytes_read = file_update_check(delta_file, 1024, &crc32);
+							bytes_read = file_update_check(dfu_file, 1024, &crc32);
 							if (bytes_read == 0)
 								notdone = 0;
 						}
 					} else {
 						printf("Error reading file header\n");
-						return -1;
-					}
-
-					int ret = compare_sha1(delta_file);
-					if (ret < 0) {
 						return -1;
 					}
 
@@ -517,7 +468,7 @@ static int32_t dfu_modem_write_image(const int delta_file)
 					crc32 = 0;
 
 					int readsize = 0;
-					if (file_read_flash_hdr(delta_file, offset) != 0) {
+					if (file_read_flash_hdr(dfu_file, offset) != 0) {
 						printf("file system flash read failed\n");
 						return (-1);
 					}
@@ -555,7 +506,7 @@ static int32_t dfu_modem_write_image(const int delta_file)
 
 						// printf("readsize: %d chunk_cnt: %d total %d\n", readsize, chunk_cnt, chunk_check);
 						if (readsize > 0) {
-							if (file_read_flash(delta_file, readsize) != 0) {
+							if (file_read_flash(dfu_file, readsize) != 0) {
 								printf("file system flash read failed\n");
 								return (-1);
 							}
@@ -674,15 +625,24 @@ int dfu_modem_is_golden()
 	return -1;
 }
 
-int dfu_modem_firmware_upgrade (int selected_murata_file)
+int dfu_modem_firmware_upgrade (const struct dfu_file_t *dfu_file)
 {
 	int ret = 0;
 	char dfu_murata_version_str[DFU_MODEM_FW_VER_SIZE];
+	int selected_murata_file = 0;
 
 	int status = dfu_modem_get_version(dfu_murata_version_str);
 	if (status != 0) {
 		printf("Murata 1SC FW update has aborted - reading the Murata 1SC FW version has failed !\n");
-		return (-1);
+	}
+
+	if (strstr (dfu_file->lfile, "sample") != NULL)
+		selected_murata_file = 1;
+	else if (strstr(dfu_file->lfile, "golden") != NULL)
+		selected_murata_file = 2;
+	else {
+		printf("Murata FW is invalid\n");
+		return -1;
 	}
 
 	int is_golden = dfu_modem_is_golden();
@@ -700,6 +660,7 @@ int dfu_modem_firmware_upgrade (int selected_murata_file)
 	switch (selected_murata_file) {
 		case 0:
 		case 2:
+			printf("Case 2 %s %s\n",dfu_murata_version_str, murata_20161_version_str);
 			if (strcmp (dfu_murata_version_str, murata_20161_version_str) == 0) {
 				printf("Invalid FW update selection - the Murata 1SC FW version is already %s\n", dfu_murata_version_str);
 				return (-1);
@@ -709,7 +670,9 @@ int dfu_modem_firmware_upgrade (int selected_murata_file)
 
 		case 1:
 		case 3:
+			printf("Case 3 %s %s\n",dfu_murata_version_str, murata_20351_version_str);
 			if (strcmp (dfu_murata_version_str, murata_20351_version_str) == 0) {
+				printf("case 3 if\n");
 				printf("Invalid FW update selection - the Murata 1SC FW version is already %s\n", dfu_murata_version_str);
 				return (-1);
 			}
@@ -721,6 +684,7 @@ int dfu_modem_firmware_upgrade (int selected_murata_file)
 			return -1;
 	}
 
-	ret = dfu_modem_write_image(selected_murata_file);
+	printf("write image to modem\n");
+	ret = dfu_modem_write_image(dfu_file);
 	return ret;
 }

@@ -19,6 +19,6 @@ struct dfu_file_t {
 	char sha1[DFU_SHA1_LEN];
 };
 
-int dfu_mcu_firmware_upgrade(int slot_to_upgrade);
+int dfu_mcu_firmware_upgrade(int slot_to_upgrade, char *bin_file, char *sha_file);
 
 #endif

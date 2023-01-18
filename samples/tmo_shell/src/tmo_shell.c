@@ -182,12 +182,12 @@ int tcp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 	return 0;
 }
 
-int tcp_create(const struct shell *shell, size_t argc, char **argv) 
+int tcp_create(const struct shell *shell, size_t argc, char **argv)
 {
 	return tcp_create_core(shell, argc, argv, AF_INET);
 }
 
-int tcp_createv6(const struct shell *shell, size_t argc, char **argv) 
+int tcp_createv6(const struct shell *shell, size_t argc, char **argv)
 {
 	return tcp_create_core(shell, argc, argv, AF_INET6);
 }
@@ -255,12 +255,12 @@ int tcp_create_tls_core(const struct shell *shell, size_t argc, char **argv, int
 	return ret;
 }
 
-int tcp_create_tls(const struct shell *shell, size_t argc, char **argv) 
+int tcp_create_tls(const struct shell *shell, size_t argc, char **argv)
 {
 	return tcp_create_tls_core(shell, argc, argv, AF_INET);
 }
 
-int tcp_create_tlsv6(const struct shell *shell, size_t argc, char **argv) 
+int tcp_create_tlsv6(const struct shell *shell, size_t argc, char **argv)
 {
 	return tcp_create_tls_core(shell, argc, argv, AF_INET6);
 }
@@ -298,12 +298,12 @@ int udp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 	return 0;
 }
 
-int udp_create(const struct shell *shell, size_t argc, char **argv) 
+int udp_create(const struct shell *shell, size_t argc, char **argv)
 {
 	return udp_create_core(shell, argc, argv, AF_INET);
 }
 
-int udp_createv6(const struct shell *shell, size_t argc, char **argv) 
+int udp_createv6(const struct shell *shell, size_t argc, char **argv)
 {
 	return udp_create_core(shell, argc, argv, AF_INET6);
 }
@@ -553,7 +553,7 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	if (!(socks[sock_idx].flags & sock_cmd_parent_bm)) {
-		shell_warn(shell, "Warning: Socket %d is a %s socket", 
+		shell_warn(shell, "Warning: Socket %d is a %s socket",
 				sd, (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls))) ? "UDP": "TCP");
 	}
 
@@ -644,8 +644,8 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 			}
 #endif
 		}
-		ret = zsock_connect(sd, &target, 
-				target.sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) 
+		ret = zsock_connect(sd, &target,
+				target.sa_family == AF_INET6 ? sizeof(struct sockaddr_in6)
 				: sizeof(struct sockaddr_in));
 	}
 
@@ -710,7 +710,7 @@ int sock_send(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	if (!(socks[sock_idx].flags & sock_cmd_parent_bm)) {
-		shell_warn(shell, "Warning: Socket %d is a %s socket", 
+		shell_warn(shell, "Warning: Socket %d is a %s socket",
 				sd, (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls))) ? "UDP": "TCP");
 	}
 	int stat = zsock_send(sd, argv[2], strlen(argv[2]), 0);
@@ -830,7 +830,7 @@ int sock_sendb(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	if (!(socks[sock_idx].flags & sock_cmd_parent_bm)) {
-		shell_warn(shell, "Warning: Socket %d is a %s socket", 
+		shell_warn(shell, "Warning: Socket %d is a %s socket",
 				sd, (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls))) ? "UDP": "TCP");
 	}
 	int sendsize = strtol(argv[2], NULL, 10);
@@ -919,7 +919,7 @@ int sock_recvb(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	if (!(socks[sock_idx].flags & sock_cmd_parent_bm)) {
-		shell_warn(shell, "Warning: Socket %d is a %s socket", 
+		shell_warn(shell, "Warning: Socket %d is a %s socket",
 				sd, (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls))) ? "UDP": "TCP");
 	}
 	int recvsize = strtol(argv[2], NULL, 10);
@@ -971,7 +971,7 @@ int sock_rcv(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	if (!(socks[sock_idx].flags & sock_cmd_parent_bm)) {
-		shell_warn(shell, "Warning: Socket %d is a %s socket", 
+		shell_warn(shell, "Warning: Socket %d is a %s socket",
 				sd, (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls))) ? "UDP": "TCP");
 	}
 	int stat = 0;
@@ -1066,7 +1066,7 @@ int sock_close(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	if (!(socks[sock_idx].flags & sock_cmd_parent_bm)) {
-		shell_warn(shell, "Warning: Socket %d is a %s socket", 
+		shell_warn(shell, "Warning: Socket %d is a %s socket",
 				sd, (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls)) ? "UDP": "TCP"));
 	}
 	int stat = zsock_close(sd);
@@ -1209,8 +1209,8 @@ void shell_help_modem(const struct shell *shell)
 char cmd_buf[MAX_CMD_BUF_SIZE];
 
 static inline void strupper(char *p)
-{ 
-	while (*p) 
+{
+	while (*p)
 		if (*p <= 'z' && *p >= 'a')
 			*p++ &= 0xdf;
 		else
@@ -1524,7 +1524,7 @@ int cmd_sntp(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Missing required arguments");
 		shell_print(shell, "Usage: tmo sntp <iface> <server>");
 		return -EINVAL;
-	}	  
+	}
 
 	int status = -1;
 
@@ -1556,7 +1556,7 @@ int cmd_gnss_version(const struct shell *shell, size_t argc, char **argv)
 	if (ret) {
 		printf("%s:%d - Error reading GNSS version (%d)\n",__FUNCTION__, __LINE__, ret);
 		return 1;
-	} 
+	}
 
 	return 0;
 }
@@ -1661,7 +1661,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(ble_smp_9116_sub,
 		SHELL_CMD(respond, &ble_smp_9116_respond, "Send response.", NULL),
 		SHELL_SUBCMD_SET_END
 		);
-#endif 
+#endif
 
 #if IS_ENABLED(CONFIG_BT_PERIPHERAL)
 #include "tmo_ble_demo.h"
@@ -1737,7 +1737,7 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 	return tmo_dfu_download(shell, target, argv[2], argv[3]);
 }
 
-int cmd_dfu_get_slot(const struct shell *shell, size_t argc, char **argv) 
+int cmd_dfu_get_slot(const struct shell *shell, size_t argc, char **argv)
 {
 #ifdef BOOT_SLOT
 	shell_print(shell, "Slot %s", BOOT_SLOT);
@@ -1759,7 +1759,7 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 	shell_print(shell, "cmd_dfu_get_version: target: %d\n", (int) strtol(argv[1], NULL, 10));
 
 	int version_target = (int) strtol(argv[1], NULL, 10);
-	switch (version_target) 
+	switch (version_target)
 	{
 		case DFU_GECKO:
 			{
@@ -1804,9 +1804,16 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 {
 	int firmware_target = (int) strtol(argv[1], NULL, 10);
-	int delta_firmware_target = (int) strtol(argv[2], NULL, 10);
+	int delta_firmware_target;
+	char *dfu_modem_filename;
+	struct dfu_file_t dfu_modem_file;
 
-	if (((argc < 2) && (firmware_target != DFU_GECKO)) || 
+	if (firmware_target == DFU_GECKO)
+		delta_firmware_target = (int) strtol(argv[2], NULL, 10);
+	else if (firmware_target == DFU_MODEM)
+		dfu_modem_filename = argv[2];
+
+	if (((argc < 2) && (firmware_target != DFU_GECKO)) ||
 			((argc != 3) && (firmware_target == DFU_GECKO))) {
 		shell_error(shell, "Missing required arguments");
 		shell_print(shell, "Usage: tmo dfu update <target>\n"
@@ -1836,9 +1843,24 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 				shell_error(shell,"Can't program over currently running firmware");
 				return -EINVAL;
 #endif
-				shell_print(shell,"\nStarting the FW update for SiLabs Pearl Gecko");
+
 				int status;
-				status = dfu_mcu_firmware_upgrade(delta_firmware_target);
+				char bin_file[DFU_FILE_LEN];
+				char sha_file[DFU_FILE_LEN];
+
+				if (delta_firmware_target == 0){
+					strcpy(bin_file, "/tmo/zephyr.slot0.bin");
+					strcpy(sha_file, "/tmo/zephyr.slot0.bin.sha1");
+				} else if (delta_firmware_target == 1) {
+					strcpy(bin_file, "/tmo/zephyr.slot1.bin");
+					strcpy(sha_file, "/tmo/zephyr.slot1.bin.sha1");
+				} else {
+					shell_error(shell, "Invalid Slot Number.");
+					return -EINVAL;
+				}
+
+				shell_print(shell,"\nStarting the FW update for SiLabs Pearl Gecko");
+				status = dfu_mcu_firmware_upgrade(delta_firmware_target,bin_file,sha_file);
 				if (status != 0) {
 					shell_error(shell, "The FW update for SiLabs Pearl Gecko failed");
 				}
@@ -1852,7 +1874,9 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 			{
 				shell_print(shell,"\nStarting the FW update for Murata 1SC");
 				int status;
-				status = dfu_modem_firmware_upgrade(delta_firmware_target);
+				sprintf(dfu_modem_file.desc, "Murata 1SC Firmware Update");
+				sprintf(dfu_modem_file.lfile, "/tmo/%s.ua", dfu_modem_filename);
+				status = dfu_modem_firmware_upgrade(&dfu_modem_file);
 				if (status != 0) {
 					shell_error(shell, "The FW update of Murata 1SC failed");
 				}
@@ -2040,19 +2064,19 @@ int cmd_json_transmit_interval(const struct shell *shell, size_t argc, char **ar
 }
 
 int cmd_json_transmit_disable(const struct shell *shell, size_t argc, char **argv)
-{ 
+{
 	set_transmit_json_flag(false);
 	return 0;
 }
 
 int cmd_json_print_payload(const struct shell *shell, size_t argc, char **argv)
-{ 
+{
 	printf("\n%s\n", get_json_payload_pointer());
 	return 0;
 }
 
 int cmd_json_print_settings (const struct shell *shell, size_t argc, char **argv)
-{ 
+{
 	struct web_demo_settings_t ws;
 	get_web_demo_settings(&ws);
 	printf("Transmit: %s\nInterface %d\nNumber transmissions: %d\nTransmit interval: %d secs\n",
