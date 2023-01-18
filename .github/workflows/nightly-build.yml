@@ -1,0 +1,18 @@
+on:
+  workflow_dispatch:
+    branches: [ main ]
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '0 6 * * *'
+
+jobs:
+  build-tmo-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+        pip3 install --user -U west
+        west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git zephyrproject
+        pushd zephyrproject
+        west update
+        popd
+        printenv
