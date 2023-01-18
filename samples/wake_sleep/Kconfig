@@ -1,0 +1,15 @@
+# Copyright (c) 2022 T-Mobile USA, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "wake_sleep application settings"
+
+config WAKE_TIMER_DURATION
+    int "Wake timer timeout in seconds, 0 = diaabled"
+    default 0
+
+config WAKE_TIMER_PERIOD
+    int "Wake timer period in seconds, 0 = disabled"
+    default 0
+
+source "Kconfig.zephyr"
