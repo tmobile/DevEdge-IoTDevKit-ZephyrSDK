@@ -1,3 +1,5 @@
+name: nightly-build
+
 on:
   workflow_dispatch:
     branches: [ main ]
