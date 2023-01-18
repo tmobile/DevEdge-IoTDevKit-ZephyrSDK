@@ -9,7 +9,7 @@
 
 #include "dfu_murata_1sc.h"
 #include "dfu_rs9116w.h"
-#include "dfu_gecko_lib.h"
+//#include "dfu_gecko_lib.h"
 #include "tmo_shell.h"
 #include <zephyr/shell/shell.h>
 

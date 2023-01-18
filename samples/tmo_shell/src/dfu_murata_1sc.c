@@ -26,6 +26,7 @@
 #include "dfu_murata_1sc.h"
 #include "tmo_shell.h"
 #include "tmo_modem.h"
+#include "dfu_gecko_lib.h"
 
 /* The Murata 1SC updates below are "delta files" for updating
  * between two FW versions. Early (Beta/Pilot) dev kits contain
