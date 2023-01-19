@@ -1,0 +1,12 @@
+# DFU Gecko updagte configuration options
+
+# Copyright (c) 2021 Kim Mansfield <kmansfie@yahoo.com>
+# Copyright (c) 2022 T-Mobile USA, Inc.
+# SPDX-Licnse-Identifiere: Apache-2.0
+#
+
+config DFU_GECKO_LIB
+        bool "DFU Gecko Update Library"
+	help
+           Enable DFU Gecko update library inclusion
+

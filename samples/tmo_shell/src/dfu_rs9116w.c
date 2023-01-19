@@ -195,7 +195,6 @@ int32_t dfu_wifi_write_image(void)
 
 	while (!fwUpgradeDone) {
 
-		//printf("dfu_rsi_write_image: RS9116W State = %d\n", rs9116w_app_cb.state);
 		switch (rs9116w_app_cb.state) {
 			case RS9116W_INITIAL_STATE:
 				{
