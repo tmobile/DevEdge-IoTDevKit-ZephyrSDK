@@ -8,6 +8,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
+#include <zephyr/drivers/sensor/lis2dw12.h>
 
 #define DOUBLE_TAP_EVENT 0x10U
 #define SINGLE_TAP_EVENT 0x08U
