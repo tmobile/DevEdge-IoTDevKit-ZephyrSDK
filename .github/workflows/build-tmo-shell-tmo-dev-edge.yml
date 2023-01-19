@@ -28,5 +28,5 @@ jobs:
           west update
       - name: Build
         run: |
-          source ../set-zephyr-build-env
+          source set-zephyr-build-env
           west build ../samples/tmo_shell -p -b tmo_dev_edge
