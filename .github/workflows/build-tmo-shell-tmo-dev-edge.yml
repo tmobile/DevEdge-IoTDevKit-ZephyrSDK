@@ -12,6 +12,9 @@ on:
     branches: [ workflow-nightly-build ]
   pull_request:
     branches: [ workflow-nightly-build ]
+defaults:
+  run:
+    shell: bash
 
 jobs:
   build:
