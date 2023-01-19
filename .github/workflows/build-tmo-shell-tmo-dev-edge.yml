@@ -25,3 +25,4 @@ jobs:
           west update
           popd
           printenv
+          west build samples/tmo_shell -p -b tmo_dev_edge
