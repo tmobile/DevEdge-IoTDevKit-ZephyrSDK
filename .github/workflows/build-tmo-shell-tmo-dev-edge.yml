@@ -34,5 +34,5 @@ jobs:
       - name: Build
         working-directory: zephyrproject
         run: |
-          source set-zephyr-build-env
+          source ../DevEdge-IoTDevKit-ZephyrSDK/set-zephyr-build-env
           west build ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
