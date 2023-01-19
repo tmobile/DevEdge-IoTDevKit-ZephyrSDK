@@ -14,6 +14,7 @@ jobs:
   build-tmo-shell:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - run: |
           pip3 install --user -U west
           west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git zephyrproject
