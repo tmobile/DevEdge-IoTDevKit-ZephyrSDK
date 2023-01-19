@@ -1746,9 +1746,13 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	if (argv[2] == NULL && target > 0) {
+	if (argc <= 2 && target == 1) { // have modem
 		shell_error(shell, "There are no updates at this time");
 		return -EINVAL;
+	}
+
+	if (argc <= 2 && target == 2) { // have wifi
+		return tmo_dfu_download(shell, target, "rs9116w/RS9116W.2.7.0.0.39", argv[3]);
 	}
 
 	return tmo_dfu_download(shell, target, argv[2], argv[3]);
