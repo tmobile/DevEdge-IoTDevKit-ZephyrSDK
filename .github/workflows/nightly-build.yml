@@ -7,6 +7,9 @@ name: nightly-build
 #     # * is a special character in YAML so you have to quote this string
 #     - cron:  '0 6 * * *'
 
+on:
+  workflow_call:
+
 jobs:
   build-tmo-shell:
     runs-on: ubuntu-latest
