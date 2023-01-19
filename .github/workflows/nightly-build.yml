@@ -1,4 +1,4 @@
-name: nightly-build
+name: build-tmo-shell-tmo-dev-edge
 
 # on:
 #   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
     branches: [ workflow-nightly-build ]
 
 jobs:
-  build-tmo-shell:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
