@@ -16,13 +16,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: zephyrprojectrtos/ci:latest
+    env:
+      CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
-      - uses: actions/checkout@v3
-      - run: |
-          pip3 install --user -U west
-          west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git --mr tmo-main zephyrproject
-          pushd zephyrproject
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          path: DevEdge-IoTDevKit-ZephyrSDK
+
+      - name: Initialize
+        working-directory: DevEdge-IoTDevKit-ZephyrSDK
+        run: |
+          west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git --mr tmo-main
           west update
-          source ../set-zephyr-build-env
-          printenv
-          west build ../samples/tmo_shell -p -b tmo_dev_edge
+      - name: Build firmware
+        working-directory: DevEdge-IoTDevKit-ZephyrSDK
+        run: |
+          west build -b tmo_dev_edge samples/tmo_shell
