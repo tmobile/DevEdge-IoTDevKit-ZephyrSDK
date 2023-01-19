@@ -23,6 +23,6 @@ jobs:
           west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git zephyrproject
           pushd zephyrproject
           west update
-          source DevEdge-IoTDevKit-ZephyrSDK/set-zephyr-build-env
+          source ../set-zephyr-build-env
           printenv
           west build ../samples/tmo_shell -p -b tmo_dev_edge
