@@ -8,13 +8,16 @@ name: nightly-build
 #     - cron:  '0 6 * * *'
 
 on:
-  workflow_call:
+  push:
+    branches: [ workflow-nightly-build ]
+  pull_request:
+    branches: [ workflow-nightly-build ]
 
 jobs:
   build-tmo-shell:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: |
           pip3 install --user -U west
           west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git zephyrproject
