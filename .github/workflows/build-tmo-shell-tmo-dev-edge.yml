@@ -22,6 +22,8 @@ jobs:
     container: zephyrprojectrtos/ci:latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          path: DevEdge-IoTDevKit-ZephyrSDK
       - name: West Init
         run: |
           west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git --mr tmo-main zephyrproject
