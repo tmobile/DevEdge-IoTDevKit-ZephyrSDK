@@ -15,14 +15,11 @@
 #define FREEFALL_EVENT	 0x02U
 #define DATAREADY_EVENT	 0x01U
 
-#define ABS(x) (((x) < 0) ? -(x) : (x))
+bool sample_init_complete = false;
+
 
 uint8_t reg_value;
 struct sensor_value temperature;
-bool sample_init_complete = false;
-
-uint8_t status;
-
 struct sensor_value sensor_attr_val;
 struct sensor_trigger trig;
 
@@ -64,7 +61,7 @@ static void trigger_and_display(const struct device *sensor)
 	if (rc < 0) {
 		printf("\n\tERROR: Unable to read register 0X27 :%d\n", rc);
 	} else {
-		uint8_t reg_value = (uint8_t)sensor_attr_val.val1;
+		reg_value = (uint8_t)sensor_attr_val.val1;
 		if ((reg_value & SINGLE_TAP_EVENT) == SINGLE_TAP_EVENT) {
 			printf("\n\tSINGLE TAP was detected (%xh)\n", (reg_value));
 		} else if ((reg_value & DOUBLE_TAP_EVENT) == DOUBLE_TAP_EVENT) {
@@ -122,15 +119,13 @@ static void trigger_and_display(const struct device *sensor)
 		}
 	}
 
-	struct sensor_value temp12bit;
-	rc = sensor_channel_get(sensor, SENSOR_CHAN_AMBIENT_TEMP, &temp12bit);
+	rc = sensor_channel_get(sensor, SENSOR_CHAN_AMBIENT_TEMP, &temperature);
 	if (rc < 0) {
 		printf("\n\tERROR: Unable to read ambient temperature :%d\n", rc);
 	} else {
 
-		float deltaT = (((int16_t)temp12bit.val1 >> 4) * 0.0625);
-		float temperature16 = (25.0 + deltaT);
-		printf("\tAmbient Temperature %.1f deg C\n", ABS(temperature16));
+		float celcius = temperature.val1;
+		printf("\tAmbient Temperature %.1f deg C\n", (double)celcius);
 	}
 }
 
