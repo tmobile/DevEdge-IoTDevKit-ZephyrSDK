@@ -23,18 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          path: DevEdge-IoTDevKit-ZephyrSDK
+            path: zephyrproject/DevEdge-IoTDevKit-ZephyrSDK
       - name: West Init
+        working-directory: zephyrproject
         run: |
           west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git --mr tmo-main zephyrproject
       - name: West Update
-        working-directory: zephyrproject
+        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
           west update
       - name: Build
-        working-directory: zephyrproject/zephyr
+        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
-          source ../../DevEdge-IoTDevKit-ZephyrSDK/set-zephyr-build-env
+          source ../DevEdge-IoTDevKit-ZephyrSDK/set-zephyr-build-env
           printenv
-          west build ../../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
-          
+          west build ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
