@@ -1,4 +1,4 @@
-name: build-tmo-shell-tmo-dev-edge
+name: tmo-nightly-build-tmoshell-devkit
 
 # on:
 #   workflow_dispatch:
