@@ -27,7 +27,7 @@ jobs:
       - name: West Init
         working-directory: zephyrproject
         run: |
-          west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git --mr tmo-main .
+          west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git --mr tmo-main DevEdge-IoTDevKit-ZephyrRTOS
       - name: West Update
         working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
