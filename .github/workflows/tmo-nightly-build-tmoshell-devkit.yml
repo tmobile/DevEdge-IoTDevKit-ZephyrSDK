@@ -31,7 +31,7 @@ jobs:
         run: |
           west update
       - name: Build
-        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
+        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS/zephyr
         env: 
           ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
