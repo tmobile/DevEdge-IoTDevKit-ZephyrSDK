@@ -16,7 +16,7 @@ LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 #include <stdio.h>
 #include <zephyr/fs/fs.h>
 #include <zephyr/kernel.h>
-#include <fcntl.h>
+#include <zephyr/posix/fcntl.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
