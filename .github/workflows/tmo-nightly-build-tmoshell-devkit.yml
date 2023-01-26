@@ -33,7 +33,7 @@ jobs:
       - name: Build
         working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         env: 
-          ZEPHYR_BASE: '${{ GITHUB_WORKSPACE }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS'
+          ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
           printenv
           west build ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
