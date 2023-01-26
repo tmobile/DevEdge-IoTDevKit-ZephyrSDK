@@ -6,10 +6,6 @@ name: tmo-nightly-build-tmoshell-devkit
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ workflow-nightly-build ]
-  pull_request:
-    branches: [ workflow-nightly-build ]
 defaults:
   run:
     shell: bash
