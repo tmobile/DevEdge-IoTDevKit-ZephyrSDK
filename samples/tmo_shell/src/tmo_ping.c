@@ -6,6 +6,8 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
+#include <zephyr/posix/unistd.h>
+#include <getopt.h>
 #include <zephyr/net/ping.h>
 #include <zephyr/net/socket.h>
 #include "tmo_shell.h"
