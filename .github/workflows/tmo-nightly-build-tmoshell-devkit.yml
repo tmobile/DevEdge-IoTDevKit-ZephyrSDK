@@ -36,4 +36,4 @@ jobs:
           ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
           printenv
-          west build ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
+          west build ../../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
