@@ -28,15 +28,16 @@ jobs:
       - name: West Init
         working-directory: zephyrproject
         run: |
-          west init -m https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git --mr tmz-1.17.0-qa DevEdge-IoTDevKit-ZephyrRTOS
-      - name: West Update
+          git clone --depth 1 --branch tmz-1.17.0-qa https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git
+      - name: West Init
         working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
+          west init -l .
           west update
       - name: Build
-        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS/zephyr
+        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         env: 
           ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
           printenv
-          west build ../../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
+          west build ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
