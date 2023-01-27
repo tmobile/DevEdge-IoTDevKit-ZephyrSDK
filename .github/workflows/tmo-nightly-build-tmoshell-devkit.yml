@@ -2,6 +2,18 @@ name: tmo-nightly-build-tmoshell-devkit
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ZEPHYR_APPLICATION:
+        required: true
+        type: string
+        default: ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell
+      ZEPHYR_BOARD:
+        required: true
+        type: string
+        default: tmo_dev_edge
+  push:
+    branches: [ workflow-build-tmoshell-reusable ]
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '0 8 * * *'
@@ -15,12 +27,18 @@ jobs:
     container: zephyrprojectrtos/ci:latest
     steps:
       - uses: actions/checkout@v3
+        name: Clone ${{ github.repository }}
+        if: ${{ github.repository != 'tmobile/DevEdge-IoTDevKit-ZephyrSDK' }}
+      - uses: actions/checkout@v3
+        name: Clone ZephyrSDK
         with:
+            repository: 'tmobile/DevEdge-IoTDevKit-ZephyrSDK'
             path: zephyrproject/DevEdge-IoTDevKit-ZephyrSDK
-      - name: Clone ZephyrRTOS
-        working-directory: zephyrproject
-        run: |
-          git clone https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git
+      - uses: actions/checkout@v3
+        name: Clone ZephyrRTOS
+        with:
+            repository: 'tmobile/DevEdge-IoTDevKit-ZephyrRTOS'
+            path: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
       - name: West Init and Update
         working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
@@ -32,7 +50,7 @@ jobs:
           ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
           ZEPHYR_SDK_INSTALL_DIR: /opt/toolchains/
         run: |
-          west build ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell -p -b tmo_dev_edge
+          west build ${{ inputs.ZEPHYR_APPLICATION }} -p -b ${{ inputs.ZEPHYR_BOARD }}
       - name: Archive firmware
         uses: actions/upload-artifact@v2
         with:
