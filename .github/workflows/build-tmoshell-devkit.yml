@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   tmoshell-devkit-build:
-    uses: tmobile/DevEdge-IoTDevKit-ZephyrSDK/.github/workflows/build.yml
+    uses: tmobile/DevEdge-IoTDevKit-ZephyrSDK/.github/workflows/build.yml@main
     with:
       ZEPHYR_APPLICATION: ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell
       ZEPHYR_BOARD: tmo_dev_edge
