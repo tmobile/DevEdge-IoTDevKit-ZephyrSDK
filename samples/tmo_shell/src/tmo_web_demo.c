@@ -262,6 +262,7 @@ int  create_json()
 	num_bytes_avail_buffer -=  ret_val;
 	total_bytes_written += ret_val;
 
+#if CONFIG_LPS22HH
 	if (ret_val >= 0 && total_bytes_written < buffer_size) {
 		if (fetch_pressure((struct sensor_value*) &sensor_value_arr[0])) {
 			double val = sensor_value_to_double(sensor_value_arr);
@@ -273,6 +274,7 @@ int  create_json()
 	}
 	num_bytes_avail_buffer -=  ret_val;
 	total_bytes_written += ret_val;
+#endif
 
 	if (ret_val >= 0 && total_bytes_written < buffer_size) {
 		get_gnss_location_info(&lat, &lon, &alt, &hdop);

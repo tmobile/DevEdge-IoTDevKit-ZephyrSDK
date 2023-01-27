@@ -4,6 +4,8 @@
 
 cmake_minimum_required(VERSION 3.20.0)
 
+set(ZEPHYR_EXTRA_MODULES "$ENV{ZEPHYR_EXTRA_MODULES};${CMAKE_SOURCE_DIR}/../../")
+
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(tmo_shell)
 
@@ -13,7 +15,6 @@ target_include_directories(app PRIVATE ${ZEPHYR_BASE}/subsys/ PRIVATE ${ZEPHYR_B
 FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE src/tmo_shell.c)
 target_sources(app PRIVATE src/tmo_buzzer.c)
-target_sources(app PRIVATE src/dfu_gecko.c)
 target_sources(app PRIVATE src/dfu_rs9116w.c)
 target_sources(app PRIVATE src/dfu_murata_1sc.c)
 target_sources(app PRIVATE src/tmo_shell_main.c)
@@ -83,6 +84,8 @@ generate_inc_file_for_target(
 if(DEFINED CONFIG_TMO_SHELL_BUILD_EK)
 	add_subdirectory(src/ek18)
 endif()
+
+target_include_directories(app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../dfu_gecko)
 
 # zephyr: base upstream version tag used for tmo-main
 if(DEFINED ENV{ZEPHYR_BASE_TAG})
