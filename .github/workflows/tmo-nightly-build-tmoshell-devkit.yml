@@ -45,4 +45,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: firmware
-          path: example-application/build/zephyr/zephyr.*
+          path: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS/build/zephyr/zephyr.*
