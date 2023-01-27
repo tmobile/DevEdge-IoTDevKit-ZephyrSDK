@@ -1,0 +1,17 @@
+name: build-tmoshell-devkit
+
+on:
+  workflow_dispatch:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '0 8 * * *'
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tmoshell-devkit-build:
+    uses: tmobile/DevEdge-IoTDevKit-ZephyrSDK/.github/workflows/build.yml
+    with:
+      ZEPHYR_APPLICATION: ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell
+      ZEPHYR_BOARD: tmo_dev_edge
