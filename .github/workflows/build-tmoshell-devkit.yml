@@ -23,4 +23,4 @@ defaults:
 
 jobs:
   build:
-    uses: tmobile/DevEdge-IoTDevKit-ZephyrSDK/.github/workflows/build.yml
+    uses: tmobile/DevEdge-IoTDevKit-ZephyrSDK/.github/workflows/build.yml@workflow-build-tmoshell-reusable
