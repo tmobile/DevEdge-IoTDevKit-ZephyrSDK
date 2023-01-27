@@ -12,7 +12,7 @@ defaults:
     shell: bash
 
 jobs:
-  build:
+  tmoshell-devkit-build:
     uses: tmobile/DevEdge-IoTDevKit-ZephyrSDK/.github/workflows/build.yml@workflow-build-tmoshell-reusable
     with:
       ZEPHYR_APPLICATION: ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell
