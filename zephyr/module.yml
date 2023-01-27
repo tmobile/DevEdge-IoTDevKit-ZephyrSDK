@@ -1,4 +1,4 @@
 name: Zephyr TMO SDK
 build:
-  settings:
-    board_root: .
+  cmake: .
+  kconfig: Kconfig
