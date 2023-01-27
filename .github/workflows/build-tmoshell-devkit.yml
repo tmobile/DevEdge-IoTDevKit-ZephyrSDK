@@ -2,16 +2,6 @@ name: build-tmoshell-devkit
 
 on:
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      ZEPHYR_APPLICATION:
-        required: true
-        type: string
-        default: ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell
-      ZEPHYR_BOARD:
-        required: true
-        type: string
-        default: tmo_dev_edge
   push:
     branches: [ workflow-build-tmoshell-reusable ]
   schedule:
