@@ -10,7 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <zephyr/kernel.h>
-#include <fcntl.h>
+#include <zephyr/posix/fcntl.h>
 #include <zephyr/types.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/random/rand32.h>

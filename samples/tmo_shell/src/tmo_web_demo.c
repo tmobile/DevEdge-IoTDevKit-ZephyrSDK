@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zephyr/kernel.h>
-#include <fcntl.h>
+#include <zephyr/posix/fcntl.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/socket.h>
