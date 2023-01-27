@@ -19,8 +19,7 @@ defaults:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container: zephyrprojectrtos/ci:latest
+    runs-on: zephyrprojectrtos/ci:latest
     steps:
       - uses: actions/checkout@v3
         with:
