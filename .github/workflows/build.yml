@@ -1,7 +1,6 @@
 name: build
 
 on:
-  workflow_dispatch:
   workflow_call:
     inputs:
       ZEPHYR_APPLICATION:
@@ -12,11 +11,7 @@ on:
         required: true
         type: string
         default: tmo_dev_edge
-  push:
-    branches: [ workflow-build-tmoshell-reusable ]
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    - cron:  '0 8 * * *'
+
 defaults:
   run:
     shell: bash
