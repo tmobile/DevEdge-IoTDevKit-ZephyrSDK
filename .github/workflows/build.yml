@@ -50,5 +50,5 @@ jobs:
       - name: Archive firmware
         uses: actions/upload-artifact@v2
         with:
-          name: tmo-shell-devkit
+          name: ${{ inputs.ZEPHYR_BOARD }}
           path: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS/build/zephyr/zephyr.*
