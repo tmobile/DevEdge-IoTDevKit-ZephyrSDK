@@ -28,7 +28,7 @@ jobs:
       - name: West Init
         working-directory: zephyrproject
         run: |
-          git clone --depth 1 --branch tmz-1.17.0-qa https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git
+          git clone https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git
       - name: West Init
         working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
