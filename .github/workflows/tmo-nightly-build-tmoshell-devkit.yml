@@ -1,9 +1,5 @@
 name: tmo-nightly-build-tmoshell-devkit
 
-#   schedule:
-#     # * is a special character in YAML so you have to quote this string
-#     - cron:  '0 6 * * *'
-
 on:
   workflow_dispatch:
   schedule:
