@@ -6,10 +6,6 @@ name: tmo-nightly-build-tmoshell-devkit
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ workflow-nightly-build ]
-  pull_request:
-    branches: [ workflow-nightly-build ]
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron:  '0 8 * * *'
