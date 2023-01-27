@@ -38,6 +38,7 @@ jobs:
         working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         env: 
           ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
+          ZEPHYR_SDK_INSTALL_DIR: /opt/toolchains/
         run: |
           printenv
           ls -la
