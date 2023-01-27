@@ -1,6 +1,8 @@
-name: build
+name: workflow-tmo-prv-compatible
 
 on:
+  push:
+    branches: [ workflow-tmo-prv-compatible ]
   workflow_call:
     inputs:
       ZEPHYR_APPLICATION:
@@ -22,19 +24,18 @@ jobs:
     container:
       image: zephyrprojectrtos/ci:latest
     steps:
-      - uses: actions/checkout@v3
-        name: Clone ${{ github.repository }}
+      - name: Clone ${{ github.repository }}
         if: ${{ github.repository != 'tmobile/DevEdge-IoTDevKit-ZephyrSDK' }}
-      - uses: actions/checkout@v3
-        name: Clone ZephyrSDK
-        with:
-            repository: 'tmobile/DevEdge-IoTDevKit-ZephyrSDK'
-            path: zephyrproject/DevEdge-IoTDevKit-ZephyrSDK
-      - uses: actions/checkout@v3
-        name: Clone ZephyrRTOS
-        with:
-            repository: 'tmobile/DevEdge-IoTDevKit-ZephyrRTOS'
-            path: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
+        run: |
+          git clone github.repository
+      - name: Clone ZephyrSDK
+        working-directory: zephyrproject
+        run: |
+          git clone https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrSDK.git
+      - name: Clone ZephyrRTOS
+        working-directory: zephyrproject
+        run: |
+          git clone https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrRTOS.git
       - name: West Init and Update
         working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
         run: |
