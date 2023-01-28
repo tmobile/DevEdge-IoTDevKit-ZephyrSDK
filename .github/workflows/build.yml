@@ -27,7 +27,7 @@ jobs:
       - name: Clone ${{ github.repository }}
         if: ${{ github.repository != 'tmobile/DevEdge-IoTDevKit-ZephyrSDK' }}
         run: |
-          git clone ${{ github.repository }}
+          git clone $GITHUB_SERVER_URL/$GITHUB_REPOSITORY
       - name: Clone ZephyrSDK
         working-directory: zephyrproject
         run: |
