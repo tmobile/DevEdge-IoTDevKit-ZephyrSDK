@@ -67,8 +67,8 @@ This application aims to demonstrate the Gecko's Energy Mode 2 (EM2) (Deep Sleep
 Mode) and Wake capabilities in conjunction with the temperature interrupt
 of DevEdge's (tmo_dev_edge) AMS OSRAM AS6212 Digital Temperature Sensor.
 
-        Set SENSOR_ATTR_UPPER_THRESH (44)
-        Set SENSOR_ATTR_LOWER_THRESH (38)
+        Set SENSOR_ATTR_UPPER_THRESH (44C)
+        Set SENSOR_ATTR_LOWER_THRESH (38C)
 
         Set temperature_alert
 
