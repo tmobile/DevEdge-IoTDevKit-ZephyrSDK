@@ -21,8 +21,6 @@ LOG_MODULE_REGISTER(as6212_sample, LOG_LEVEL_INF);
 #define INTERRUPT_MODE 0x0200
 
 #define SLEEP_DURATION		   2U
-#define TEMPERATURE_THRESHOLD_LOW  38
-#define TEMPERATURE_THRESHOLD_HIGH 44
 
 /* Thread properties */
 #undef TASK_STACK_SIZE
@@ -42,8 +40,11 @@ static struct k_thread as6212_b_id;
 int as6212_int1_int_isr_count = 0;
 const struct device *as6212;
 
-void as6212_intr_callback(const struct device *port, struct gpio_callback *cb, uint32_t pins)
+static void as6212_intr_callback(const struct device *device, const struct sensor_trigger *trigger)
 {
+	ARG_UNUSED(device);
+	ARG_UNUSED(trigger);
+
 	as6212_int1_int_isr_count++;
 	printk("\n%s(): Received AS6212 Temperature Sensor ALERT Interrupt (%d)\n", __func__,
 	       as6212_int1_int_isr_count);
@@ -90,9 +91,11 @@ static void enable_temp_alerts(const struct device *as6212)
 	struct sensor_trigger sensor_trigger_type_temp_alert = {.chan = SENSOR_CHAN_AMBIENT_TEMP,
 								.type = SENSOR_TRIG_THRESHOLD};
 
-	struct sensor_value alert_upper_thresh = {TEMPERATURE_THRESHOLD_HIGH, 0};
+	struct sensor_value alert_upper_thresh;
+	sensor_value_from_double(&alert_upper_thresh, CONFIG_APP_TEMP_ALERT_HIGH_THRESH);
 
-	struct sensor_value alert_lower_thresh = {TEMPERATURE_THRESHOLD_LOW, 0};
+	struct sensor_value alert_lower_thresh;
+	sensor_value_from_double(&alert_lower_thresh, CONFIG_APP_TEMP_ALERT_LOW_THRESH);
 
 	struct sensor_value thermostat_mode = {0, 0};
 
@@ -101,21 +104,18 @@ static void enable_temp_alerts(const struct device *as6212)
 	sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP, SENSOR_ATTR_UPPER_THRESH,
 			&alert_upper_thresh);
 
-	printf("\tSet SENSOR_ATTR_UPPER_THRESH (%d)\n", alert_upper_thresh.val1);
+	printf("\tSet SENSOR_ATTR_UPPER_THRESH (%gC)\n", sensor_value_to_double(&alert_upper_thresh));
 
 	sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP, SENSOR_ATTR_LOWER_THRESH,
 			&alert_lower_thresh);
 
-	printf("\tSet SENSOR_ATTR_LOWER_THRESH (%d)\n", alert_lower_thresh.val1);
+	printf("\tSet SENSOR_ATTR_LOWER_THRESH (%gC)\n", sensor_value_to_double(&alert_lower_thresh));
 
 	sensor_trigger_set(as6212, &sensor_trigger_type_temp_alert, temperature_alert);
 
 	puts("\n\tSet temperature_alert");
 
-	struct sensor_value app_callback = {0, 0};
-	app_callback.val1 = 1;
-	app_callback.val2 = (int32_t)as6212_intr_callback;
-	sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP, SENSOR_ATTR_USER_CALLBACK, &app_callback);
+	sensor_trigger_set(as6212, &sensor_trigger_type_temp_alert, as6212_intr_callback);
 }
 #endif
 
@@ -211,8 +211,11 @@ static void setup(void)
 		return;
 	}
 
-	sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP,
+	result = sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP,
 			SENSOR_ATTR_TMP108_CONTINUOUS_CONVERSION_MODE, NULL);
+	if (result) {
+		printf("error: sensor_attr_set(): %d\n", result);
+	}
 
 #if CONFIG_APP_ENABLE_ONE_SHOT
 	enable_one_shot(as6212);
