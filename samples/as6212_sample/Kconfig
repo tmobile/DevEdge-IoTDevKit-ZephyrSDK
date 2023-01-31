@@ -19,7 +19,7 @@ config APP_ENABLE_ONE_SHOT
 
 config APP_TEMP_ALERT_HIGH_THRESH
 	int "RH [%] high threshold for alert trigger in celsius"
-	range 0 50
+	range -40 125
 	default 44
 	help
 		Set this to enable alerts for high temperatures
@@ -30,7 +30,7 @@ config APP_TEMP_ALERT_HIGH_THRESH
 
 config APP_TEMP_ALERT_LOW_THRESH
 	int "RH [%] low threshold for alert trigger in celsius"
-	range 0 50
+	range -40 125
 	default 38
 	help
 		Set this to enable alerts for low temperatures

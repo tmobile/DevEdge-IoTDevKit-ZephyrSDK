@@ -16,11 +16,12 @@
 #include <zephyr/pm/policy.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(as6212_sample, LOG_LEVEL_INF);
+// LOG_MODULE_REGISTER(as6212_sample, LOG_LEVEL_WRN);
+LOG_MODULE_REGISTER(as6112_sample, CONFIG_LOG_DEFAULT_LEVEL);
 
 #define INTERRUPT_MODE 0x0200
 
-#define SLEEP_DURATION		   2U
+#define SLEEP_DURATION 2U
 
 /* Thread properties */
 #undef TASK_STACK_SIZE
@@ -32,13 +33,40 @@ LOG_MODULE_REGISTER(as6212_sample, LOG_LEVEL_INF);
 
 K_THREAD_STACK_DEFINE(stack_a, TASK_STACK_SIZE);
 K_THREAD_STACK_DEFINE(stack_b, TASK_STACK_SIZE);
+K_THREAD_STACK_DEFINE(pm_stack, TASK_STACK_SIZE);
 
 static struct k_thread as6212_a_id;
 static struct k_thread as6212_b_id;
+static struct k_thread pm_thread_id;
+const struct device *as6212;
+
+/*
+ * Pushbutton data
+ */
+#define SW0_NODE DT_ALIAS(sw0)
+#if !DT_NODE_HAS_STATUS(SW0_NODE, okay)
+#error "Unsupported board: sw0 device-tree alias is not defined"
+#endif
+static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios, {0});
+static struct gpio_callback button_cb_data;
+static int user_push_button_isr_count = 0;
+
+/*
+ * User Push Button (sw0) interrupt service routine
+ */
+static void user_push_button_intr_callback(const struct device *port, struct gpio_callback *cb,
+					   gpio_port_pins_t pin_mask)
+{
+	ARG_UNUSED(port);
+	ARG_UNUSED(cb);
+	ARG_UNUSED(pin_mask);
+
+	user_push_button_isr_count++;
+	k_thread_resume(&pm_thread_id);
+}
 
 /* AS6212 interrupt callback */
-int as6212_int1_int_isr_count = 0;
-const struct device *as6212;
+static int as6212_int1_int_isr_count = 0;
 
 static void as6212_intr_callback(const struct device *device, const struct sensor_trigger *trigger)
 {
@@ -46,8 +74,6 @@ static void as6212_intr_callback(const struct device *device, const struct senso
 	ARG_UNUSED(trigger);
 
 	as6212_int1_int_isr_count++;
-	printk("\n%s(): Received AS6212 Temperature Sensor ALERT Interrupt (%d)\n", __func__,
-	       as6212_int1_int_isr_count);
 	k_thread_resume(&as6212_a_id);
 	k_thread_resume(&as6212_b_id);
 }
@@ -104,12 +130,14 @@ static void enable_temp_alerts(const struct device *as6212)
 	sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP, SENSOR_ATTR_UPPER_THRESH,
 			&alert_upper_thresh);
 
-	printf("\tSet SENSOR_ATTR_UPPER_THRESH (%gC)\n", sensor_value_to_double(&alert_upper_thresh));
+	printf("\tSet SENSOR_ATTR_UPPER_THRESH (%gC)\n",
+	       sensor_value_to_double(&alert_upper_thresh));
 
 	sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP, SENSOR_ATTR_LOWER_THRESH,
 			&alert_lower_thresh);
 
-	printf("\tSet SENSOR_ATTR_LOWER_THRESH (%gC)\n", sensor_value_to_double(&alert_lower_thresh));
+	printf("\tSet SENSOR_ATTR_LOWER_THRESH (%gC)\n",
+	       sensor_value_to_double(&alert_lower_thresh));
 
 	sensor_trigger_set(as6212, &sensor_trigger_type_temp_alert, temperature_alert);
 
@@ -134,49 +162,93 @@ static void enable_one_shot(const struct device *as6212)
 
 static void get_temperature(const struct device *as6212)
 {
-
-	struct sensor_value temp_value;
 	int result;
+#if 1
+	if ((result = sensor_sample_fetch(as6212))) {
+		LOG_ERR("error: sensor_sample_fetch failed: %d", result);
+	} else {
+#endif
+		struct sensor_value temp_value;
 
-	result = sensor_channel_get(as6212, SENSOR_CHAN_AMBIENT_TEMP, &temp_value);
-
-	if (result) {
-		printf("%s(): error: sensor_channel_get failed: %d\n", __func__, result);
-		return;
+		if ((result = sensor_channel_get(as6212, SENSOR_CHAN_AMBIENT_TEMP, &temp_value))) {
+			LOG_ERR("%s(): error: sensor_channel_get failed: %d", __func__, result);
+		} else {
+			LOG_INF("%s(): %gC", __func__, sensor_value_to_double(&temp_value));
+		}
+#if 1
 	}
+#endif
+}
 
-	printf("\t%s(): temperature is %gC\n\n", __func__, sensor_value_to_double(&temp_value));
+static void pm_thread(void *this_thread, void *p2, void *p3)
+{
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
+
+#define STRUCT_INIT(enumerator)                                                                    \
+	{                                                                                          \
+		.pm_state = enumerator, .name = #enumerator                                        \
+	}
+	const struct {
+		enum pm_state pm_state;
+		const char *name;
+		} pm_state[] = {
+			STRUCT_INIT(PM_STATE_ACTIVE),			// Doesn't go to sleep, as expected
+			STRUCT_INIT(PM_STATE_RUNTIME_IDLE),		// Doesn't go to sleep
+			STRUCT_INIT(PM_STATE_SUSPEND_TO_IDLE),	// Appears to work
+			STRUCT_INIT(PM_STATE_STANDBY),			// Appears to work
+			STRUCT_INIT(PM_STATE_SUSPEND_TO_RAM),	// Doesn't go to sleep
+			STRUCT_INIT(PM_STATE_SUSPEND_TO_DISK),	// Doesn't go to sleep
+			// STRUCT_INIT(PM_STATE_SOFT_OFF), 		// Won't wake up
+
+			};
+#undef STRUCT_INIT
+	const size_t pm_state_size = sizeof pm_state / sizeof *pm_state;
+	static int user_push_button_count = 0;
+
+
+	while (true) {
+		int next_state = user_push_button_count % pm_state_size;
+
+		LOG_INF("pm_state_force(%d, %d): %s", next_state, pm_state[next_state].pm_state, pm_state[next_state].name);
+		pm_state_force(0u, &(struct pm_state_info){pm_state[next_state].pm_state, 0, 0});
+
+		k_thread_suspend((struct k_thread *)this_thread);
+		user_push_button_count++;
+		LOG_INF("%s(): running", __func__);
+		LOG_INF("%s(): Received user push button interrupt (%d/%d)", __func__,
+			user_push_button_count,
+			user_push_button_isr_count);
+		get_temperature(as6212);
+		// k_sleep(K_MSEC(50));	// Debounce
+	}
 }
 
 static void as6212_thread1(void *this_thread, void *p2, void *p3)
 {
-	int result;
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
 
 	while (true) {
-		printf("\t%s(): running\n", __func__);
-		result = sensor_sample_fetch(as6212);
-		if (result) {
-			printf("error: as6212 thread 1 sensor sample fetch failed: %d\n", result);
-			return;
-		}
-		get_temperature(as6212);
 		k_thread_suspend((struct k_thread *)this_thread);
+		LOG_INF("%s(): running", __func__);
+		LOG_INF("%s(): Received AS6212 Temperature Sensor ALERT Interrupt (%d)", __func__,
+			as6212_int1_int_isr_count);
+		get_temperature(as6212);
 	}
 }
 
 static void as6212_thread2(void *this_thread, void *p2, void *p3)
 {
-	int result;
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
 
 	while (true) {
-		printf("\t%s(): running\n", __func__);
-		result = sensor_sample_fetch(as6212);
-		if (result) {
-			printf("error: as6212 thread 2 sensor sample fetch failed: %d\n", result);
-			return;
-		}
-		get_temperature(as6212);
 		k_thread_suspend((struct k_thread *)this_thread);
+		LOG_INF("%s(): running", __func__);
+		LOG_INF("%s(): Received AS6212 Temperature Sensor ALERT Interrupt (%d)", __func__,
+			as6212_int1_int_isr_count);
+		get_temperature(as6212);
 	}
 }
 
@@ -201,21 +273,40 @@ static void setup(void)
 
 	as6212 = DEVICE_DT_GET_ANY(ams_as6212);
 
-	if (!as6212) {
+	if (NULL == as6212) {
 		puts("error: no AMS OSRAM AS6212 (ams_as6212) device found");
 		return;
-	}
-
-	if (!device_is_ready(as6212)) {
+	} else if (!device_is_ready(as6212)) {
 		puts("error: AMS OSRAM AS6212 (ams_as6212) device not ready");
 		return;
 	}
-
-	result = sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP,
-			SENSOR_ATTR_TMP108_CONTINUOUS_CONVERSION_MODE, NULL);
-	if (result) {
+	if ((result = sensor_attr_set(as6212, SENSOR_CHAN_AMBIENT_TEMP,
+				      SENSOR_ATTR_TMP108_CONTINUOUS_CONVERSION_MODE, NULL))) {
 		printf("error: sensor_attr_set(): %d\n", result);
+		return;
 	}
+
+	if (!device_is_ready(button.port)) {
+		LOG_ERR("Error: button device %s is not ready", button.port->name);
+		return;
+	}
+
+	result = gpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP);
+	if (result != 0) {
+		LOG_ERR("Error %d: failed to configure %s pin %d", result, button.port->name,
+			button.pin);
+		return;
+	}
+
+	result = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_RISING);
+	if (result != 0) {
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d", result,
+			button.port->name, button.pin);
+		return;
+	}
+	gpio_init_callback(&button_cb_data, user_push_button_intr_callback, BIT(button.pin));
+	gpio_add_callback(button.port, &button_cb_data);
+	LOG_INF("Set up button at %s pin %d\n", button.port->name, button.pin);
 
 #if CONFIG_APP_ENABLE_ONE_SHOT
 	enable_one_shot(as6212);
@@ -223,14 +314,11 @@ static void setup(void)
 
 #if CONFIG_APP_REPORT_TEMP_ALERTS
 	enable_temp_alerts(as6212);
-	puts("\n\tCall enable_temp_alerts");
 #endif
 
-	result = sensor_sample_fetch(as6212);
-	if (result) {
-		printf("error: sensor_sample_fetch failed: %d\n", result);
-		return;
-	}
+#if !CONFIG_APP_ENABLE_ONE_SHOT
+	get_temperature(as6212);
+#endif
 }
 
 void main(void)
@@ -238,22 +326,12 @@ void main(void)
 	greeting();
 	setup();
 
-#if !CONFIG_APP_ENABLE_ONE_SHOT
-	get_temperature(as6212);
-#endif
-
 	k_thread_create(&as6212_a_id, stack_a, TASK_STACK_SIZE, as6212_thread1, &as6212_a_id, NULL,
-			NULL, PRIORITY, K_INHERIT_PERMS, K_FOREVER);
+			NULL, PRIORITY, K_INHERIT_PERMS, K_NO_WAIT);
 	k_thread_create(&as6212_b_id, stack_b, TASK_STACK_SIZE, as6212_thread2, &as6212_b_id, NULL,
-			NULL, PRIORITY, K_INHERIT_PERMS, K_FOREVER);
-
-	k_thread_start(&as6212_a_id);
-	k_thread_start(&as6212_b_id);
-
-	k_sleep(K_MSEC(100));
-
-	k_thread_suspend(&as6212_a_id);
-	k_thread_suspend(&as6212_b_id);
+			NULL, PRIORITY, K_INHERIT_PERMS, K_NO_WAIT);
+	k_thread_create(&pm_thread_id, pm_stack, TASK_STACK_SIZE, pm_thread, &pm_thread_id, NULL,
+			NULL, PRIORITY, K_INHERIT_PERMS, K_NO_WAIT);
 
 	puts("\nAwaiting the AS6212 temperature threshold-high/threshold-low (interrupt) "
 	     "alerts.\n\n"
@@ -261,11 +339,10 @@ void main(void)
 	     "heat source) to momentarily raise the temperature of DevEdge board, triggering\n"
 	     "the AS6212 temperature-high alert. Remove the heat source and wait for the\n"
 	     "AS6212 temperature-low alert.\n");
-
+#if 1
 	while (true) {
-
 		/* Try EM2 mode sleep */
-		pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
+		// pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
 
 		/*
 		 * This will let the idle thread run and let the pm subsystem run in forced state.
@@ -274,4 +351,5 @@ void main(void)
 		k_sleep(K_SECONDS(SLEEP_DURATION));
 		puts("\nError: Wake from EM2 sleep: We shouldn't ever get here!");
 	}
+#endif
 }
