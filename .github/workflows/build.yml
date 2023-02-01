@@ -11,6 +11,10 @@ on:
         required: true
         type: string
         default: tmo_dev_edge
+      ZEPHYR_DBOARD_ROOT:
+        required: true
+        type: string
+        default: zephyrproject/boards
 
 defaults:
   run:
@@ -46,7 +50,7 @@ jobs:
           ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
           ZEPHYR_SDK_INSTALL_DIR: /opt/toolchains/
         run: |
-          west build ${{ inputs.ZEPHYR_APPLICATION }} -p -b ${{ inputs.ZEPHYR_BOARD }}
+          west build ${{ inputs.ZEPHYR_APPLICATION }} -p -b ${{ inputs.ZEPHYR_BOARD }} -- -DBOARD_ROOT=${{ inputs.ZEPHYR_DBOARD_ROOT }}
       - name: Archive firmware
         uses: actions/upload-artifact@v2
         with:
