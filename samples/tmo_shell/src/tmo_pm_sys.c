@@ -10,7 +10,7 @@
 
 #include <em_emu.h>
 #include <em_gpio.h>
-// #include <efm32pg12b_gpio.h>
+#include <em_cryotimer.h>
 
 #ifdef CONFIG_PM_DEVICE
 #include <zephyr/pm/device.h>
@@ -61,7 +61,12 @@ int cmd_pmsysoff(const struct shell *shell, int argc, char** argv)
 	led_off(dev, 2);
 	led_off(dev, 3);
 	#endif
-	shell_print(shell, "Shutting down. Use the reset button to bring the board back alive");
+	shell_print(shell, "Shutting down. Use the reset or user button to bring the board back alive");
+	GPIO_IntDisable(0xFFFF);
+	GPIO_IntClear(0xFFFFFFFF);
+	GPIO_PinModeSet(gpioPortB, 13, gpioModeInputPullFilter, 1);
+	GPIO_EM4EnablePinWakeup(BIT(9) << _GPIO_EM4WUEN_EM4WUEN_SHIFT, 0);
+	CRYOTIMER_EM4WakeupEnable(false);
 	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SOFT_OFF, 1, 0});    
 	return 0;
 }
@@ -83,7 +88,11 @@ int cmd_pmsysfulloff(const struct shell *shell, int argc, char** argv)
 	led_off(dev, 3);
 	#endif
 	shell_warn(shell, "Warning RTCC will be lost");
-	shell_print(shell, "Shutting down. Use the reset button to bring the board back alive");
+	shell_print(shell, "Shutting down. Use the reset or user button to bring the board back alive");
+	GPIO_IntDisable(0xFFFF);
+	GPIO_IntClear(0xFFFFFFFF);
+	GPIO_PinModeSet(gpioPortB, 13, gpioModeInputPullFilter, 1);
+	GPIO_EM4EnablePinWakeup(BIT(9) << _GPIO_EM4WUEN_EM4WUEN_SHIFT, 0);
 	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SOFT_OFF, 0, 0});    
 	return 0;
 }

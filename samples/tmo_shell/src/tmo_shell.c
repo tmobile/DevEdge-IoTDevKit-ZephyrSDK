@@ -2468,8 +2468,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_sys_pm,
 	SHELL_CMD(fulloff, NULL, "Put system into the off state (Without RTCC)", cmd_pmsysfulloff),
 	SHELL_CMD(idle, NULL, "Put system into idle state", cmd_pmsysidle),
 	SHELL_CMD(off, NULL, "Put system into the off state (Retaining RTCC)", cmd_pmsysoff),
-	/* Disabled until fixed in SOC code*/
-	// SHELL_CMD(standby, NULL, "Put system into the standby state", cmd_pmsysstandby),
+	SHELL_CMD(standby, NULL, "Put system into the standby state", cmd_pmsysstandby),
 	SHELL_CMD(suspend, NULL, "Put system into the suspend state", cmd_pmsyssuspend),
 	SHELL_SUBCMD_SET_END
 	);
