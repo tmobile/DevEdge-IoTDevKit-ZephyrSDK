@@ -15,3 +15,4 @@ jobs:
     with:
       ZEPHYR_APPLICATION: ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell
       ZEPHYR_BOARD: tmo_dev_edge
+      ZEPHYR_DBOARD_ROOT: $GITHUB_WORKSPACE/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
