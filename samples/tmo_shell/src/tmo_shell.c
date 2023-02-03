@@ -117,6 +117,7 @@ int rs9116w_socket_offload_init(void);
 void dump_addrinfo(const struct shell *shell, const struct addrinfo *ai);
 int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **argv, int sd);
 int process_cli_cmd_modem_edrx(const struct shell *shell, size_t argc, char **argv, int sd);
+int process_cli_cmd_modem_edrx_ptw(const struct shell *shell, size_t argc, char **argv, int sd);
 
 struct sock_rec_s socks[MAX_SOCK_REC] = {0};
 
@@ -1217,8 +1218,9 @@ int cmd_list_ifaces(const struct shell *shell, size_t argc, char **argv)
 void shell_help_modem(const struct shell *shell)
 {
 	shell_print(shell, "tmo modem <iface> <cmd_str>\n"
-			"                  <cmd_str>: imei | imsi | iccid | ssi | sim | apn | msisdn | conn_sts |\n"
-			"                             ip | ip6 | version | golden | sleep | wake | awake | psm | edrx");
+			"                  <cmd_str>: apn | awake | conn_sts | edrx | golden | iccid | imei | imsi |\n"
+			"                             ip | ip6 | msisdn | psm | ptw | sim | sleep | ssi | version | wake"
+			);
 }
 
 #define MAX_CMD_BUF_SIZE	256
@@ -1258,6 +1260,8 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 
 	if (!strcmp(argv[2], "edrx")) {
 		process_cli_cmd_modem_edrx(shell, argc, argv, sd);
+	} else if (!strcmp(argv[2], "ptw")) {
+		process_cli_cmd_modem_edrx_ptw(shell, argc, argv, sd);
 	} else if (!strcmp(argv[2], "psm")) {
 		process_cli_cmd_modem_psm(shell, argc, argv, sd);
 	} else {
@@ -1651,6 +1655,27 @@ int process_cli_cmd_modem_edrx(const struct shell *shell, size_t argc, char **ar
 	} else {
 		// Invalid edrx command input
 		print_set_modem_edrx_usage(shell);
+	}
+	return 0;
+}
+
+int process_cli_cmd_modem_edrx_ptw(const struct shell *shell, size_t argc, char **argv, int sd)
+{
+	int ptw = 0;
+	if (argc == 4) {
+		ptw = strtol(argv[3], NULL, 10);
+		if (ptw >= 0 && ptw <= 15) {
+			shell_print(shell, "Set eDRX PTW: %d", ptw);
+			fcntl_ptr(sd, AT_MODEM_EDRX_PTW_SET, (const void*)&ptw);
+		} else {
+			shell_print(shell, "Invalid eDRX PTW value");
+			shell_print(shell, "tmo modem <iface> ptw [ptw_value]");
+		}
+	} else if (argc == 3) {
+		fcntl_ptr(sd, AT_MODEM_EDRX_PTW_GET, (const void*)&ptw);
+		shell_print(shell, "PTW: %d", ptw);
+	} else {
+		shell_print(shell, "tmo modem <iface> ptw [ptw_value]");
 	}
 	return 0;
 }
