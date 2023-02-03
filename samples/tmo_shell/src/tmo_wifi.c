@@ -12,6 +12,10 @@
 #include <zephyr/shell/shell.h>
 #include <shell/shell_help.h>
 
+#if CONFIG_PM_DEVICE
+#include <zephyr/pm/device.h>
+#endif
+
 #include "tmo_shell.h"
 
 #define WIFI_SHELL_MGMT_EVENTS (NET_EVENT_WIFI_SCAN_RESULT | \
@@ -293,6 +297,16 @@ int cmd_wifi_connect(const struct shell *shell, size_t argc,
 		return -EINVAL;
 	}
 
+#if CONFIG_PM_DEVICE
+	enum pm_device_state st;
+
+	pm_device_state_get(iface->if_dev->dev, &st);
+	if (st == PM_DEVICE_STATE_OFF) {
+		shell_error(shell, "Device %s is off, Command ignored", iface->if_dev->dev->name);
+		return -EIO;
+	}
+#endif
+
 	static struct wifi_connect_req_params cnx_params;
 
 	if (__wifi_args_to_params(argc - 2, &argv[2], &cnx_params)) {
@@ -331,6 +345,16 @@ int cmd_wifi_disconnect(const struct shell *shell, size_t argc,
 		shell_error(shell, "Operation not supported on non-WiFi interfaces");
 		return -EINVAL;
 	}
+
+#if CONFIG_PM_DEVICE
+	enum pm_device_state st;
+
+	pm_device_state_get(iface->if_dev->dev, &st);
+	if (st == PM_DEVICE_STATE_OFF) {
+		shell_error(shell, "Device %s is off, Command ignored", iface->if_dev->dev->name);
+		return -EIO;
+	}
+#endif
 
 	// struct net_if *iface = net_if_get_default();
 	int status;
@@ -373,6 +397,16 @@ int cmd_wifi_scan(const struct shell *shell, size_t argc, char *argv[])
 		return -EINVAL;
 	}
 
+#if CONFIG_PM_DEVICE
+	enum pm_device_state st;
+
+	pm_device_state_get(iface->if_dev->dev, &st);
+	if (st == PM_DEVICE_STATE_OFF) {
+		shell_error(shell, "Device %s is off, Command ignored", iface->if_dev->dev->name);
+		return -EIO;
+	}
+#endif
+
 	context.shell = shell;
 
 	if (net_mgmt(NET_REQUEST_WIFI_SCAN, iface, NULL, 0)) {
@@ -401,6 +435,16 @@ int cmd_wifi_status(const struct shell *shell, size_t argc, char *argv[])
 		shell_error(shell, "Operation not supported on non-WiFi interfaces");
 		return -EINVAL;
 	}
+
+#if CONFIG_PM_DEVICE
+	enum pm_device_state st;
+
+	pm_device_state_get(iface->if_dev->dev, &st);
+	if (st == PM_DEVICE_STATE_OFF) {
+		shell_error(shell, "Device %s is off, Command ignored", iface->if_dev->dev->name);
+		return -EIO;
+	}
+#endif
 
 	context.shell = shell;
 
@@ -477,6 +521,17 @@ int cmd_wifi_mac(const struct shell *shell, size_t argc, char *argv[])
 		shell_error(shell, "Interface %d not found", idx);
 		return -EINVAL;
 	}
+
+#if CONFIG_PM_DEVICE
+	enum pm_device_state st;
+
+	pm_device_state_get(iface->if_dev->dev, &st);
+	if (st == PM_DEVICE_STATE_OFF) {
+		shell_error(shell, "Device %s is off, Command ignored", iface->if_dev->dev->name);
+		return -EIO;
+	}
+#endif
+
 #ifdef CONFIG_WIFI_RS9116W
 	else if (strstr(iface->if_dev->dev->name,"9116")) { 
 		uint8_t mac[6];
