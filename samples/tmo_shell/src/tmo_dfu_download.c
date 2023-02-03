@@ -210,7 +210,7 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 			sprintf((char *)dfu_files_rs9116w[0].rfile, "%s.rps",base);
 			dfu_files = dfu_files_rs9116w;
 
-			strncpy(base_url_s,user_base_url_s,sizeof(base_url_s)-1);
+			sprintf(base_url_s,"%srs9116w/",user_base_url_s);
 
 		default:
 			break;

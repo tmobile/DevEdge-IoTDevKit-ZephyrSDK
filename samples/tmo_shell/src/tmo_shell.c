@@ -1897,6 +1897,8 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 				int status;
 				sprintf(dfu_modem_file.desc, "Murata 1SC Firmware Update");
 				sprintf(dfu_modem_file.lfile, "/tmo/%s.ua", dfu_modem_filename);
+				sprintf(dfu_modem_file.rfile, "%s.ua", dfu_modem_filename);
+
 				status = dfu_modem_firmware_upgrade(&dfu_modem_file);
 				if (status != 0) {
 					shell_error(shell, "The FW update of Murata 1SC failed");

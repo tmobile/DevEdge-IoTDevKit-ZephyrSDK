@@ -78,16 +78,16 @@ typedef enum modem_app_state_e {
 	MODEM_FW_UPGRADE_DONE
 } modem_app_state_t;
 
-// application control block
+/* application control block */
 typedef struct modem_app_cb_s {
-	// wlan application state
+	/* wlan application state */
 	modem_app_state_t state;
 } modem_app_cb_t;
 
-// application control block
+/* application control block */
 modem_app_cb_t modem_app_cb;
 
-// FW send variable, buffer
+/* FW send variable, buffer */
 static uint32_t chunk_cnt = 0u, chunk_check = 0u, offset = 0u, fw_image_size = 0u, remainder = 0u;
 static uint8_t recv_buff_hdr[UA_HEADER_SIZE] = { 0 };
 static uint8_t recv_buff_1k [1024] = { 0 };
@@ -259,7 +259,6 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 	switch (cmd) {
 		case AT_GET_FILE_MODE:
 			res = fcntl_ptr(sd, GET_FILE_MODE, recv_buff_hdr);
-
 			if (res < 0) {
 				printf("GET_FILE_MODE failed\n");
 			}
@@ -267,7 +266,6 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 		case AT_GET_CHKSUM_ABILITY:
 			res = fcntl_ptr(sd, GET_CHKSUM_ABILITY, recv_buff_hdr);
-
 			if (res < 0) {
 				printf("GET_CHKSUM_ABILITY failed\n");
 			}
@@ -284,7 +282,6 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 					init_xfer_params.imagecrc);
 
 			res = fcntl_ptr(sd, INIT_FW_XFER, &init_xfer_params);
-
 			if (res < 0) {
 				printf("\tINIT_FW_XFER failed with update.ua, error %d\n", res);
 			}
@@ -295,7 +292,6 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 		case AT_SEND_FW_HEADER:
 			res = fcntl_ptr(sd, SEND_FW_HEADER, recv_buff_hdr);
-
 			if (res < 0) {
 				printf("\tSEND_FW_HEADER failed\n");
 			} else if (recv_buff_hdr[0] == 0) {
@@ -323,7 +319,6 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			send_params.len  = numofbytes;
 
 			res = fcntl_ptr(sd, SEND_FW_DATA, &send_params);
-
 			if (res < 0) {
 				printf("\tSEND_FW_DATADONE failed, error %d\n", res);
 			} else {
@@ -332,9 +327,7 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 			break;
 
 		case AT_INIT_FW_UPGRADE:
-			// AT%UPGCMD="UPGVRM","b:/update.ua"
 			res = fcntl_ptr(sd, INIT_FW_UPGRADE, "b:/update.ua");
-
 			if (res < 0) {
 				printf("\tAT_INIT_FW_UPGRADE failed with update.ua\n");
 			}
@@ -371,7 +364,6 @@ int dfu_send_ioctl(int cmd, int numofbytes) {
 
 		case AT_RESET_MODEM:
 			res = fcntl_ptr(sd, RESET_MODEM, NULL);
-
 			if (res < 0) {
 				printf("\tAT_RESET_MODEM failed\n");
 			}
@@ -475,7 +467,6 @@ static int32_t dfu_modem_write_image(const struct dfu_file_t *dfu_file)
 					}
 
 					printf("\tSending image header\n");
-					// printf("\tHeader -> %s\n", recv_buff_hdr);
 					int res = dfu_send_ioctl(AT_SEND_FW_HEADER, UA_HEADER_SIZE);
 					if (res < 0) {
 						return -1;
@@ -493,11 +484,6 @@ static int32_t dfu_modem_write_image(const struct dfu_file_t *dfu_file)
 
 					/* Loop until all the chunks are read and written */
 					while (offset <= fw_image_size) {
-						if (chunk_cnt == chunk_check) {
-							/* printf("Murata 1SC FW update started\n"); */
-							// break;
-						}
-
 						if (chunk_cnt < (chunk_check-1)) {
 							readsize = DFU_CHUNK_SIZE;
 						}
@@ -505,7 +491,6 @@ static int32_t dfu_modem_write_image(const struct dfu_file_t *dfu_file)
 							readsize = remainder;
 						}
 
-						// printf("readsize: %d chunk_cnt: %d total %d\n", readsize, chunk_cnt, chunk_check);
 						if (readsize > 0) {
 							if (file_read_flash(dfu_file, readsize) != 0) {
 								printf("file system flash read failed\n");
@@ -532,7 +517,6 @@ static int32_t dfu_modem_write_image(const struct dfu_file_t *dfu_file)
 							}
 							modem_app_cb.state = MODEM_FW_UPGRADE_DONE;
 						} else   {
-							//printf("\tModem FW update continues with in-between chunks\n");
 							printk(".");
 							dfu_send_ioctl(AT_SEND_FW_DATA, readsize);
 							if (status != 0) {
@@ -626,6 +610,24 @@ int dfu_modem_is_golden()
 	return -1;
 }
 
+int select_modem_file(char *filename) {
+    char* token;
+    char* rest = filename;
+    int idx = 0;
+    char from[10];
+
+    while ((token = strtok_r(rest, ".", &rest))) {
+        if (idx == 1) {
+            strcpy(from, token);
+        } else if (idx == 2) {
+            if (!strcmp(from, "20161") &&  !strcmp(token, "20351"))
+                return 1;
+        }
+        idx++;
+    }
+    return 0;
+}
+
 int dfu_modem_firmware_upgrade (const struct dfu_file_t *dfu_file)
 {
 	int ret = 0;
@@ -637,14 +639,7 @@ int dfu_modem_firmware_upgrade (const struct dfu_file_t *dfu_file)
 		printf("Murata 1SC FW update has aborted - reading the Murata 1SC FW version has failed !\n");
 	}
 
-	if (strstr (dfu_file->lfile, "sample") != NULL)
-		selected_murata_file = 1;
-	else if (strstr(dfu_file->lfile, "golden") != NULL)
-		selected_murata_file = 2;
-	else {
-		printf("Murata FW is invalid\n");
-		return -1;
-	}
+	selected_murata_file = select_modem_file((char *)dfu_file->rfile);
 
 	int is_golden = dfu_modem_is_golden();
 
