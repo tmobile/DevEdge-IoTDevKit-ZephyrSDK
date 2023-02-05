@@ -411,7 +411,7 @@ static struct gpio_callback button_cb_data;
 static const struct gpio_dt_spec button0 = GPIO_DT_SPEC_GET_OR(SW0_NODE, gpios,
 		{0});
 
-uint8_t aio_btn_pushed;
+uint8_t aio_btn_pushed = 0;
 
 void button_stat_change(const struct device *dev, struct gpio_callback *cb,
 		uint32_t pins);
@@ -566,8 +566,7 @@ BT_GATT_SERVICE_DEFINE(aio_svc,
 void button_stat_change(const struct device *dev, struct gpio_callback *cb,
 		uint32_t pins)
 {
-	aio_btn_pushed = 0;
-	aio_btn_pushed |= (gpio_pin_get(button0.port, button0.pin) > 0)? 1 : 0;
+	aio_btn_pushed = (gpio_pin_get(button0.port, button0.pin) > 0)? 1 : 0;
 	k_sem_give(&update_sem);
 }
 #if CONFIG_MODEM
