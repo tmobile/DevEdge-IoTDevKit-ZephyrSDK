@@ -8,19 +8,23 @@
  * @brief Device Firmware Update (DFU) support for SiLabs Pearl Gecko
  */
 
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(dfu_gecko_lib, LOG_LEVEL_INF);
+
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <zephyr/kernel.h>
 #include <errno.h>
-#include <zephyr/device.h>
 #include <soc.h>
+#include <zephyr/kernel.h>
+#include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/fs/fs.h>
-#include "mbedtls/sha1.h"
-#include "dfu_gecko_lib.h"
+#include <mbedtls/sha1.h>
 #include <zephyr/sys/byteorder.h>
+#include "dfu_gecko_lib.h"
 
 // SHAs are set to 0 since they are unknown before a build
 const struct dfu_file_t dfu_files_mcu[] = {
@@ -51,6 +55,8 @@ const struct dfu_file_t dfu_files_mcu[] = {
 
 	{"","","",""}
 };
+
+#ifdef BOOT_SLOT
 
 #define DFU_XFER_SIZE_2K    2048UL
 #define DFU_CHUNK_SIZE      2048UL
@@ -136,7 +142,7 @@ struct image_header {
 
 static int compare_sha1(int slot_to_upgrade)
 {
-	printf("\n\tSHA1 compare for file zephyr.slot%d.bin\n", slot_to_upgrade);
+	printf("Comparing SHA1 for file zephyr.slot%d.bin\n", slot_to_upgrade);
 
 	printf("\tExpected SHA1:\n\t\t");
 	for (int i = 0; i < DFU_SHA1_LEN; i++) {
@@ -152,12 +158,12 @@ static int compare_sha1(int slot_to_upgrade)
 	}
 
 	if (sha1_fails) {
-		printf("\n\nSHA1 error: The computed file SHA1 doesn't match expected\n");
+		printf("Error: The computed SHA1 doesn't match expected\n");
 		return -1;
 	}
 	else
 	{
-		printf("\n\tSHA1 matches");
+		printf("SHA1 matches\n");
 		return 0;
 	}
 }
@@ -165,105 +171,127 @@ static int compare_sha1(int slot_to_upgrade)
 static int slot_version_cmp(struct image_version *ver1,
 		struct image_version *ver2)
 {
-	printf("slot image header version compare");
-
+	/* Compare major version numbers */
 	if (ver1->iv_major > ver2->iv_major) {
-		printf ("slot image header Major version compare 1. %u vs %u\n", ver1->iv_major, ver2->iv_major);
+		LOG_DBG("Slot image header Major version compare 1. %u vs %u\n", ver1->iv_major, ver2->iv_major);
 		return 0;
 	}
 	if (ver1->iv_major < ver2->iv_major) {
-		printf ("slot image header Major version compare 2. %u vs %u\n", ver1->iv_major, ver2->iv_major);
+		LOG_DBG("Slot image header Major version compare 2. %u vs %u\n", ver1->iv_major, ver2->iv_major);
 		return 1;
 	}
-	/* The major version numbers are equal, continue comparison. */
+
+	/* Compare minor version numbers */
 	if (ver1->iv_minor > ver2->iv_minor) {
-		printf ("slot image header Minor version compare 3. %u vs %u\n", ver1->iv_minor, ver2->iv_minor);
+		LOG_DBG("Slot image header Minor version compare 3. %u vs %u\n", ver1->iv_minor, ver2->iv_minor);
 		return 0;
 	}
 	if (ver1->iv_minor < ver2->iv_minor) {
-		printf("slot image header Minor version compare 4. %u vs %u\n", ver1->iv_minor, ver2->iv_minor);
+		LOG_DBG("Slot image header Minor version compare 4. %u vs %u\n", ver1->iv_minor, ver2->iv_minor);
 		return 1;
 	}
-	/* The minor version numbers are equal, continue comparison. */
+
+	/* Compare revision numbers */
 	if (ver1->iv_revision > ver2->iv_revision) {
-		printf("slot image header revision version compare 5. %u vs %u\n", ver1->iv_revision, ver2->iv_revision );
+		LOG_DBG("Slot image header revision version compare 5. %u vs %u\n", ver1->iv_revision, ver2->iv_revision );
 		return 0;
 	}
 	if (ver1->iv_revision < ver2->iv_revision) {
-		printf("slot image header revision version compare 6. %u vs %u\n", ver1->iv_revision, ver2->iv_revision );
+		LOG_DBG("Slot image header revision version compare 6. %u vs %u\n", ver1->iv_revision, ver2->iv_revision );
 		return 1;
 	}
 
-	printf("Error: slot image header version's are both equal\n");
+	LOG_DBG("Slot image header versions are equal\n");
 	return -1;
 }
 
-int get_gecko_fw_version (void)
+int get_gecko_fw_version(int slot, char *version, int max_len)
+{
+	uint8_t read_buf[IMAGE_HEADER_SIZE];
+	struct image_header slot_hdr;
+
+	if (slot < 0 || slot > 1)
+		return -1;
+
+	/* Read slot header */
+	flash_read(gecko_flash_dev, slot ? GECKO_IMAGE_SLOT_1_SECTOR : GECKO_IMAGE_SLOT_0_SECTOR,
+			read_buf, IMAGE_HEADER_SIZE);
+	memcpy(&slot_hdr, &read_buf, IMAGE_HEADER_SIZE);
+
+	if (slot_hdr.ih_magic != IMAGE_MAGIC) {
+		return -1;
+	}
+	snprintf(version, max_len, "%u.%u.%u+%u",
+			slot_hdr.ih_ver.iv_major,
+			slot_hdr.ih_ver.iv_minor,
+			slot_hdr.ih_ver.iv_revision,
+			slot_hdr.ih_ver.iv_build_num);
+
+	return 0;
+}
+
+
+int print_gecko_slot_info(void)
 {
 	int slot0_has_image = 0;
 	int slot1_has_image = 0;
 	int active_slot = -1;
-	uint32_t page_addr_slot_0 = GECKO_IMAGE_SLOT_0_SECTOR;
-	uint32_t page_addr_slot_1 = GECKO_IMAGE_SLOT_1_SECTOR;
 	uint8_t read_buf[IMAGE_HEADER_SIZE];
 	struct image_header slot0_hdr;
 	struct image_header slot1_hdr;
 
-	flash_read(gecko_flash_dev, page_addr_slot_0, read_buf, IMAGE_HEADER_SIZE);
-
+	/* Read Slot 0 header */
+	flash_read(gecko_flash_dev, GECKO_IMAGE_SLOT_0_SECTOR, read_buf, IMAGE_HEADER_SIZE);
 	memcpy(&slot0_hdr, &read_buf, IMAGE_HEADER_SIZE);
 
-	flash_read(gecko_flash_dev, page_addr_slot_1, read_buf, IMAGE_HEADER_SIZE);
+	if (slot0_hdr.ih_magic == IMAGE_MAGIC) {
+		slot0_has_image = 1;
+	}
 
+	/* Read Slot 1 header */
+	flash_read(gecko_flash_dev, GECKO_IMAGE_SLOT_1_SECTOR, read_buf, IMAGE_HEADER_SIZE);
 	memcpy(&slot1_hdr, &read_buf, IMAGE_HEADER_SIZE);
 
+	if (slot1_hdr.ih_magic == IMAGE_MAGIC) {
+		slot1_has_image = 1;
+	}
+
+	/* Determine the active slot */
+	if (slot0_has_image && slot1_has_image) {
+		active_slot = slot_version_cmp(&slot0_hdr.ih_ver, &slot1_hdr.ih_ver);
+
+		if (active_slot < 0) {
+			printf("NOTE: Image versions are the same\n");
+			active_slot = 0;
+		}
+	} else if (slot0_has_image) {
+		active_slot = 0;
+	} else if (slot1_has_image) {
+		active_slot = 1;
+	}
+
+	/* Print the results */
+	printf("Slot Bootable Active Version\n");
 	if (slot0_hdr.ih_magic == IMAGE_MAGIC) {
-		printf("Pearl Gecko Slot 0 FW Version = %u.%u.%u+%u\n",
+		printf("0    Yes      %-6s %u.%u.%u+%u\n",
+			        active_slot == 0 ? "Yes": "No ",
 				slot0_hdr.ih_ver.iv_major,
 				slot0_hdr.ih_ver.iv_minor,
 				slot0_hdr.ih_ver.iv_revision,
 				slot0_hdr.ih_ver.iv_build_num);
-		slot0_has_image = 1;
-		active_slot = 0;
+	} else {
+		printf("0    No       N/A    N/A\n");
 	}
-	else {
-		printf("No bootable image/version found for Pearl Gecko slot 0\n");
-	}
-
 	if (slot1_hdr.ih_magic == IMAGE_MAGIC) {
-		printf("Pearl Gecko Slot 1 FW Version = %u.%u.%u+%u\n",
+		printf("1    Yes      %-6s %u.%u.%u+%u\n",
+			        active_slot == 1 ? "Yes": "No ",
 				slot1_hdr.ih_ver.iv_major,
 				slot1_hdr.ih_ver.iv_minor,
 				slot1_hdr.ih_ver.iv_revision,
 				slot1_hdr.ih_ver.iv_build_num);
-		slot1_has_image = 1;
-		active_slot = 1;
+	} else {
+		printf("1    No       N/A    N/A\n");
 	}
-	else {
-		printf("No bootable image/version found for Pearl Gecko slot 1\n");
-	}
-
-	if (slot0_has_image && slot1_has_image) {
-		printf("Pearl Gecko slot 0 and slot 1 contain a bootable active image\n");
-		active_slot = slot_version_cmp(&slot0_hdr.ih_ver, &slot1_hdr.ih_ver);
-		if (active_slot < 0) {
-			return -1;
-		}
-		else {
-			printf("Pearl Gecko slot %d is the current active image\n", active_slot);
-		}
-	}
-	else if (slot0_has_image) {
-		printf("Only Pearl Gecko slot 0 contains a bootable active image\n");
-	}
-	else if (slot1_has_image) {
-		printf("Only Pearl Gecko slot 1 contains a bootable active image\n");
-	}
-	else {
-		printf("Pearl Gecko contains no bootable images\n");
-		return -1;
-	}
-
 	return 0;
 }
 
@@ -340,8 +368,16 @@ static int get_gecko_sha1(void)
 	}
 
 	sha_hex_to_bin(gecko_expected_sha1, gecko_expected_sha1_final, DFU_SHA1_LEN*2);
-
 	return 0;
+}
+
+static int erase_image(uint32_t start_sector)
+{
+        if (flash_erase(gecko_flash_dev, start_sector, DFU_XFER_SIZE_2K) != 0) {
+                printf("\nGecko 2K page erase failed\n");
+		return -1;
+        }
+        return 0;
 }
 
 static int write_image_chunk_to_flash(int imageBytes, uint8_t* writedata, uint32_t startSector, int pageReset)
@@ -402,7 +438,6 @@ static int file_read_flash(uint32_t offset)
 
 		crc32 = crc32_ieee_update(crc32, image_buffer, readbytes);
 	}
-
 	status = 0;
 	return 0;
 }
@@ -417,7 +452,7 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 	strcpy(requested_binary_file, bin_file);
 	strcpy(requested_sha_file, sha_file);
 
-	printf("Checking for presence of correct Gecko slot %d image file\n", slot_to_upgrade);
+	printf("Checking for presence of correct Slot %d image file\n", slot_to_upgrade);
 	if (slot_to_upgrade == 0) {
 		if (fs_open(&geckofile, requested_binary_file, FS_O_READ) != 0) {
 			printf("The Gecko FW file %s is missing\n", requested_binary_file);
@@ -432,10 +467,9 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 			return 1;
 		}
 		else {
-			printf("The required SHA1 Digest file %s is present\n", requested_sha_file);
+			printf("The required SHA1 file %s is present\n", requested_sha_file);
 		}
-	}
-	else {
+	} else if (slot_to_upgrade == 1) {
 		if (fs_open(&geckofile, requested_binary_file, FS_O_READ) != 0) {
 			printf("The file %s is missing\n", requested_binary_file);
 			return 1;
@@ -449,8 +483,11 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 			return 1;
 		}
 		else {
-			printf("The required SHA1 Digest file %s is present\n", requested_sha_file);
+			printf("The required SHA1 file %s is present\n", requested_sha_file);
 		}
+	} else {
+		printf("Incorrect slot provided\n");
+		return -1;
 	}
 
 	/* We do a dummy call here to init (reset) the incrementing page address var */
@@ -478,19 +515,19 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 					/* Send the first chunk to extract header */
 					fw_image_size = get_gecko_fw_size();
 					if ((fw_image_size == 0) || (fw_image_size < DFU_CHUNK_SIZE)) {
-						printf("\nERROR  - GECKO FW is too small\n");
+						printf("ERROR: GECKO FW is too small\n");
 						return -1;
 					}
 
 					int sha1_exist = get_gecko_sha1();
 					if (sha1_exist != 0) {
-						printf("\nERROR  - GECKO SHA1 is missing!\n");
+						printf("ERROR: GECKO SHA1 is missing!\n");
 						return -1;
 					}
 
 					int sha1_is_good = compare_sha1(slot_to_upgrade);
 					if (sha1_is_good != 0) {
-						printf("\nERROR  - GECKO SHA1 is miscompares !\n");
+						printf("ERROR: GECKO SHA1 is miscompares!\n");
 						return -1;
 					}
 
@@ -500,7 +537,7 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 						chunk_check += 1;
 					}
 
-					printf("zephyr.bin image_size = %d num of 2048 chunks = %d\n", fw_image_size, chunk_check);
+					printf("image size: %d, 2048 byte chunks: %d\n", fw_image_size, chunk_check);
 					fs_seek(&geckofile, 0, FS_SEEK_SET);
 
 					readbytes = 0;
@@ -517,27 +554,27 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 							//printf("chunk_cnt: %d\n", chunk_cnt);
 						}
 						if (chunk_cnt == 0) {
-							printf("\nGECKO FW update - starts here with - 1st Chunk\n");
+							printf("GECKO FW update - starts here with - 1st Chunk\n");
 							if (status != 0) {
 								printf("1st Chunk GECKO_ERROR: %d\n", status);
 								return (-1);
 							}
 						} else if (chunk_cnt == (chunk_check -1)) {
-							printf("\nwriting last chunk\n");
+							printf("Writing last chunk\n");
 							if (file_read_flash(offset) != 0) {
 								printf("file system flash read failed\n");
 								return (-1);
 							}
 							if (status != 0) {
-								printf("last Chunk GECKO_ERROR: %d\n", status);
+								printf("Last Chunk GECKO_ERROR: %d\n", status);
 								break;
 							}
-							printf("\r\nGECKO FW update success\n");
+							printf("GECKO FW update success\n");
 							gecko_app_cb.state = GECKO_FW_UPGRADE_DONE;
 							break;
 						} else   {
 							printk(".");
-							//printf("\nGecko FW update - continues with in-between Chunks\n");
+							//printf("Gecko FW continuing with in-between Chunks\n");
 							if (status != 0) {
 								printf("in-between Chunks GECKO_ERROR: %d\n", status);
 								break;
@@ -556,8 +593,8 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 					fs_close(&geckofile);
 
 					printf("\tCalculated program CRC32 is %x\n", crc32);
-					printf("\ttotal bytes read       = %d bytes\n", totalreadbytes);
-					printf("GECKO FW update has completed - rebooting now\n");
+					printf("\tTotal bytes read       = %d bytes\n", totalreadbytes);
+					printf("GECKO FW update has completed, rebooting now\n");
 					k_sleep(K_SECONDS(3));
 					sys_reboot(SYS_REBOOT_COLD);
 				}
@@ -567,14 +604,39 @@ int32_t dfu_gecko_write_image(int slot_to_upgrade, char *bin_file, char *sha_fil
 				printf("\nerror: dfu_gecko_write_image: default case\n");
 				break;
 		} /* end of switch */
-
 	}
 	return status;
 } /* end of routine */
 
+int is_bootloader_running(void)
+{
+#ifdef BOOT_SLOT
+	return true;
+#else
+	return false;
+#endif
+}
+
+int erase_image_slot(int slot)
+{
+        int flash_sector = 0;
+
+	if (slot == 0) {
+                flash_sector = GECKO_IMAGE_SLOT_0_SECTOR;
+        }
+	else if (slot == 1) {
+                flash_sector = GECKO_IMAGE_SLOT_1_SECTOR;
+        } else {
+		printf("error: invalid slot %d\n", slot);
+		return -1;
+	}
+	return erase_image(flash_sector);
+}
+
 int dfu_mcu_firmware_upgrade(int slot_to_upgrade, char *bin_file, char *sha_file)
 {
 	int ret = 0;
+
 	printf("*** Performing the Pearl Gecko FW update ***\n");
 	ret = dfu_gecko_write_image(slot_to_upgrade, bin_file, sha_file);
 	return ret;
@@ -615,69 +677,28 @@ static void deserialize_magic_hdr(struct image_header *dst, uint8_t *read_buf)
 	dst->ih_ver.iv_build_num = POP(read_buf, 32);
 }
 
-/**
- * @brief Get the oldest slot number, invalid slots are always considered the oldest, choses 0 if a
- * tie
- *
- * @return int 0 or 1 if a determination could be made, -1 otherwise
- */
-int get_oldest_slot()
+#ifdef BOOT_SLOT
+int get_current_slot()
 {
-	struct image_header slot0_hdr;
-	struct image_header slot1_hdr;
-	uint8_t read_buf[DFU_IMAGE_HDR_LEN];
-	bool slot0_has_image = false;
-	bool slot1_has_image = false;
-	int oldest_slot = 0;
-
-	flash_read(gecko_flash_dev, DFU_SLOT0_FLASH_ADDR, read_buf,
-		   DFU_IMAGE_HDR_LEN);
-	deserialize_magic_hdr(&slot0_hdr, read_buf);
-
-	flash_read(gecko_flash_dev, DFU_SLOT1_FLASH_ADDR, read_buf,
-		   DFU_IMAGE_HDR_LEN);
-	deserialize_magic_hdr(&slot1_hdr, read_buf);
-
-	if (slot0_hdr.ih_magic == DFU_IMAGE_MAGIC) {
-		LOG_DEBUG("%s Slot 0 FW Version = %u.%u.%u+%u" ENDL, CONFIG_MCU_NAME,
-			  slot0_hdr.ih_ver.iv_major, slot0_hdr.ih_ver.iv_minor,
-			  slot0_hdr.ih_ver.iv_revision, slot0_hdr.ih_ver.iv_build_num);
-		slot0_has_image = true;
-		oldest_slot = 1;
-	} else {
-		LOG_DEBUG("No bootable image/version found for %s slot 0\n",
-			  CONFIG_MCU_NAME);
-	}
-
-	if (slot1_hdr.ih_magic == DFU_IMAGE_MAGIC) {
-		LOG_DEBUG("%s Slot 1 FW Version = %u.%u.%u+%u" ENDL, CONFIG_MCU_NAME,
-			  slot1_hdr.ih_ver.iv_major, slot1_hdr.ih_ver.iv_minor,
-			  slot1_hdr.ih_ver.iv_revision, slot1_hdr.ih_ver.iv_build_num);
-		slot1_has_image = true;
-		oldest_slot = 0;
-	} else {
-		LOG_DEBUG("No bootable image/version found for %s slot 1" ENDL,
-			  CONFIG_MCU_NAME);
-	}
-
-	if (slot0_has_image && slot1_has_image) {
-		LOG_DEBUG("%s slot 0 and slot 1 contain a bootable active image" ENDL,
-			  CONFIG_MCU_NAME);
-		oldest_slot = slot_version_cmp(&slot0_hdr.ih_ver, &slot1_hdr.ih_ver);
-		if (oldest_slot < 0) {
-			return -1;
-		}
-		/* The given function finds the *newest* version, flip that */
-		oldest_slot = (oldest_slot == 1) ? 0 : 1;
-	} else if (!slot0_has_image && !slot1_has_image) {
-		/* This should never happen and usually means no bootloader or an invalid image is
-		 * running. */
-		LOG_ERROR("No valid %s slots found, defaulting to slot 0 (S0 magic: %zu, S1 magic: "
-			  "%zu)" ENDL,
-			  CONFIG_MCU_NAME, slot0_hdr.ih_magic, slot1_hdr.ih_magic);
-		/* TODO Return whichever slot is not being used. */
-		oldest_slot = 0;
-	}
-
-	return oldest_slot;
+	return strtol(BOOT_SLOT, NULL, 10);
 }
+
+int get_unused_slot()
+{
+	return strtol(BOOT_SLOT, NULL, 10) ? 0 : 1;
+}
+
+bool slot_is_safe_to_erase(int slot)
+{
+	if (slot != 0 && slot != 1) {
+		return false;
+	}
+
+	if (slot == strtol(BOOT_SLOT, NULL, 10)) {
+		return false;
+	}
+
+	return true;
+}
+#endif
+#endif
