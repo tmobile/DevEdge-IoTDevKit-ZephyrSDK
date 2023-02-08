@@ -1979,8 +1979,10 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 	return millivolts;
 }
 
+extern uint8_t aio_btn_pushed;
 int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 {
+	uint8_t set_point = 60;
 	uint8_t percent = 100;
 	uint8_t old_percent = 0;
 	uint32_t millivolts = 0;
@@ -1988,6 +1990,22 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	uint8_t charging = 0;
         uint8_t vbus = 0;
 	uint8_t fault= 0;
+
+	if (argc > 2) {
+		shell_error(shell, "Incorrect parameters");
+		shell_print(shell, "usage: tmo battery discharge [set point (optional, default: 60)]");
+		return -1;
+	} if (argc == 2) {
+		int val = strtol(argv[1], NULL, 10);
+		if (val > 100) {
+			set_point = 100;
+		} else if (val < 0) {
+			set_point = 0;
+		} else {
+			set_point = (uint8_t) val;
+		}
+	}
+	shell_print(shell, "Discharge setpoint: %d", set_point);
 
 	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 	if (battery_attached !=  0) {
@@ -2003,12 +2021,13 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 
 	if (charging) {
 		shell_warn(shell, "Battery is currently charging, unplug USB-C to discharge!");
-	} else if (percent > 60) {
+	} else if (percent > set_point) {
 		shell_print(shell, "Discharging battery, this may take a while...");
 	}
+	shell_print(shell, "Press user button to abort...");
 
-	if (percent < 60) {
-		shell_warn(shell, "Battery already below 60%% (%d%%)", percent);
+	if (percent <= set_point) {
+		shell_warn(shell, "Battery already at or below %d%% (%d%%)", set_point, percent);
 	} else {
 #ifdef LED_PWM_WHITE
 		led_on(device_get_binding("pwmleds"), LED_PWM_WHITE);
@@ -2018,7 +2037,7 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		led_on(device_get_binding("pwmleds"), LED_PWM_BLUE);
 	}
 
-	while (percent > 60) {
+	while (percent > set_point) {
 		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 		if (battery_attached !=  0) {
 			millivolts = read_battery_voltage();
@@ -2030,6 +2049,16 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		if ((abs(old_percent - percent) > 5) && ((percent % 5) == 0)) {
 			shell_print(shell, "Battery level is now (%d%%)...", percent);
 			old_percent = percent;
+		}
+		if (aio_btn_pushed) {
+			shell_warn(shell, "Button pressed, battery discharging aborted!");
+#ifdef LED_PWM_WHITE
+			led_off(device_get_binding("pwmleds"), LED_PWM_WHITE);
+#endif /* LED_PWM_WHITE */
+			led_off(device_get_binding("pwmleds"), LED_PWM_RED);
+			led_off(device_get_binding("pwmleds"), LED_PWM_GREEN);
+			led_off(device_get_binding("pwmleds"), LED_PWM_BLUE);
+			return -ENOEXEC;
 		}
 	}
 
