@@ -611,21 +611,21 @@ int dfu_modem_is_golden()
 }
 
 int select_modem_file(char *filename) {
-    char* token;
-    char* rest = filename;
-    int idx = 0;
-    char from[10];
+	char* token;
+	char* rest = filename;
+	int idx = 0;
+	char from[10];
 
-    while ((token = strtok_r(rest, ".", &rest))) {
-        if (idx == 1) {
-            strcpy(from, token);
-        } else if (idx == 2) {
-            if (!strcmp(from, "20161") &&  !strcmp(token, "20351"))
-                return 1;
-        }
-        idx++;
-    }
-    return 0;
+	while ((token = strtok_r(rest, ".", &rest))) {
+		if (idx == 1) {
+			strcpy(from, token);
+		} else if (idx == 2) {
+			if (!strcmp(from, "20161") &&  !strcmp(token, "20351"))
+				return 1;
+		}
+		idx++;
+	}
+	return 0;
 }
 
 int dfu_modem_firmware_upgrade (const struct dfu_file_t *dfu_file)
