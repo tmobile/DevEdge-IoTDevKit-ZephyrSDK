@@ -12,18 +12,17 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/socket.h>
+#include <zephyr/drivers/adc_battery.h>
 #if CONFIG_MODEM
 #include "modem_sms.h"
 #include <zephyr/drivers/modem/murata-1sc.h>
 #endif
 
-#include "tmo_adc.h"
 #include "tmo_gnss.h"
 #include "tmo_ble_demo.h"
 #include "tmo_web_demo.h"
 #include "tmo_http_request.h"
 #include "tmo_shell.h"
-#include "tmo_battery_ctrl.h"
 
 static struct web_demo_settings_t web_demo_settings = {false, 0, 2, TRANSMIT_INTERVAL_SECS_WEB};
 #define MAX_BASE_URL_SIZE  100
@@ -39,6 +38,8 @@ static uint8_t fault = 0 ;
 static const char *battery_state_string[] = {
 	"charging", "not-charging", "not-attached", "attached",
 };
+
+extern const struct device *battery_dev;
 
 bool get_transmit_flag()
 {
@@ -168,6 +169,7 @@ int  create_json()
 	struct sensor_value sensor_value_arr[3];
 	int buffer_size = MAX_PAYLOAD_BUFFER_SIZE;
 	memset(json_payload, 0, MAX_PAYLOAD_BUFFER_SIZE);
+	struct batmon_data *data = battery_dev->data;
 
 	// test blank payload
 	// json_payload[0] = '\0';
@@ -197,13 +199,12 @@ int  create_json()
 	total_bytes_written += ret_val;
 
 	if (ret_val >= 0 && total_bytes_written < buffer_size) {
-		uint8_t percent = 0;
 		uint32_t millivolts = 0;
 		enum battery_state e_bat_state = battery_state_not_attached;
 		if (battery_attached !=0) {
-			millivolts = read_battery_voltage();
-			millivolts_to_percent(millivolts, &percent);
-			if (is_battery_charging()) {
+			adc_read(battery_dev, NULL);
+			millivolts = data->mVolts;
+			if (data->vbus && data->charging) {
 				e_bat_state = battery_state_charging;
 			} else {
 				e_bat_state = battery_state_not_charging;
@@ -213,7 +214,7 @@ int  create_json()
 		}
 		ret_val = snprintf(json_payload+total_bytes_written, num_bytes_avail_buffer,
 				"\"battery\":{\n\"voltage\":%d.%03d,\n\"percent\":%d,\n\"state\":\"%s\"\n},\n",
-				millivolts/1000, millivolts%1000, percent,
+				millivolts/1000, millivolts%1000, data->percent,
 				battery_state_string[e_bat_state]);
 	} else {
 		return ret_val;
@@ -310,13 +311,14 @@ static void tmo_web_demo_notif_thread(void *a, void *b, void *c)
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
 	k_sleep(K_SECONDS(TRANSMIT_INTERVAL_SECS_WEB));
+	struct batmon_data *data = battery_dev->data;
 
 	while (1) {
 		k_sleep(K_SECONDS(web_demo_settings.transmit_interval));
-		uint8_t charging = 0;
-		uint8_t vbus = 0;
 		if (get_transmit_flag()) {
-			get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+			adc_read(battery_dev, NULL);
+			battery_attached = data->battery_attached;
+			fault = data->fault;
 			create_json();
 			increment_number_http_requests();
 			tmo_http_json();

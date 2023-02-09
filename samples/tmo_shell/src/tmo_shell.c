@@ -25,6 +25,7 @@ LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 #include <zephyr/drivers/led.h>
 #include <zephyr/sys/reboot.h>
 #include <rsi_wlan_apis.h>
+#include <zephyr/drivers/adc_battery.h>
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 #include "tls_internal.h"
@@ -49,8 +50,6 @@ typedef int sec_tag_t;
 #include "tmo_dfu_download.h"
 #include "tmo_file.h"
 #include "tmo_certs.h"
-#include "tmo_adc.h"
-#include "tmo_battery_ctrl.h"
 #include "tmo_shell.h"
 #include "tmo_sntp.h"
 #include "tmo_modem.h"
@@ -73,6 +72,7 @@ typedef int sec_tag_t;
 #include "tmo_pm_sys.h"
 #endif
 
+const struct device *battery_dev = NULL;
 const struct device *ext_flash_dev = NULL;
 const struct device *gecko_flash_dev = NULL;
 
@@ -1938,26 +1938,29 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 {
-	int status;
-	uint8_t charging = 0;
-	uint8_t vbus = 0;
-	uint8_t attached = 0;
-	uint8_t fault = 0;
+	int err;
+	struct batmon_data *data = battery_dev->data;
 
-	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
-	if (status != 0) {
+	k_msleep(500);
+
+	err = adc_read(battery_dev, NULL);
+	if (err < 0) {
+		shell_print(shell,"Could not read (%d)\n", err);
+	}
+
+	if (data->charging_status != 0) {
 		shell_error(shell, "Charger VBUS status command failed");
 	}
 	else {
-		if (!vbus) {
+		if (!data->vbus) {
 			shell_print(shell, "\tCharger is missing VBUS and is NOT charging");
 		}
 		else {
-			if (vbus && charging) {
+			if (data->vbus && data->charging) {
 				shell_print(shell, "\tCharger has VBUS and is charging");
 			}
 			else {
-				if (vbus && !charging) {
+				if (data->vbus && !data->charging) {
 					shell_print(shell, "\tCharger has VBUS and is done charging");
 				}
 			}
@@ -1966,51 +1969,58 @@ int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
+int cmd_battery_hwid(const struct shell *shell, size_t argc, char **argv)
+{
+	struct batmon_data *data = battery_dev->data;
+	shell_print(shell,"HWID = %d\n", data->hwid);
+	return 0;
+}
+
 int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 {
-	uint32_t millivolts = 0;
-	uint8_t battery_attached = 0;
-	uint8_t charging = 0;
-        uint8_t vbus = 0;
-	uint8_t fault = 0;
+	int err;
+	struct batmon_data *data = battery_dev->data;
 
-	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	millivolts = read_battery_voltage();
-	shell_print(shell, "\tBattery voltage %d.%03dV", millivolts/1000, millivolts%1000);
+	k_msleep(500);
 
-	return millivolts;
+	err = adc_read(battery_dev, NULL);
+	if (err < 0) {
+		shell_print(shell,"Could not read (%d)\n", err);
+	}
+
+	shell_print(shell,"Battery Voltage %d.%03dV\n", data->mVolts/1000, data->mVolts%1000);
+	return 0;
 }
 
 int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 {
-	uint8_t percent = 100;
 	uint8_t old_percent = 0;
 	uint32_t millivolts = 0;
-	uint8_t battery_attached = 0;
-	uint8_t charging = 0;
-        uint8_t vbus = 0;
-	uint8_t fault= 0;
+	int err;
 
-	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (battery_attached !=  0) {
-		millivolts = read_battery_voltage();
-		millivolts_to_percent(millivolts, &percent);
-		old_percent = percent;
-	} else {
+	struct batmon_data *data = battery_dev->data;
+
+	k_msleep(500);
+
+	err = adc_read(battery_dev, NULL);
+	if (err < 0) {
 		shell_error(shell, "Battery not attached, aborting...");
 		return -ENOEXEC;
 	}
 
-	shell_print(shell, "Battery level is currently %d%%", percent);
+	millivolts = data->mVolts;
+	old_percent = data->percent;
 
-	if (charging) {
+	shell_print(shell, "Battery level is currently %d%%", data->percent);
+
+	if (data->charging) {
 		shell_warn(shell, "Battery is currently charging, unplug USB-C to discharge!");
-	} else if (percent > 60) {
+	} else if ( data->percent > 60) {
 		shell_print(shell, "Discharging battery, this may take a while...");
 	}
 
-	if (percent < 60) {
-		shell_warn(shell, "Battery already below 60%% (%d%%)", percent);
+	if ( data->percent < 60) {
+		shell_warn(shell, "Battery already below 60%% (%d%%)",  data->percent);
 	} else {
 #ifdef LED_PWM_WHITE
 		led_on(device_get_binding("pwmleds"), LED_PWM_WHITE);
@@ -2020,40 +2030,37 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		led_on(device_get_binding("pwmleds"), LED_PWM_BLUE);
 	}
 
-	while (percent > 60) {
-		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-		if (battery_attached !=  0) {
-			millivolts = read_battery_voltage();
-			millivolts_to_percent(millivolts, &percent);
-		} else {
+	while ( data->percent > 60) {
+		err = adc_read(battery_dev, NULL);
+		if (err < 0) {
 			shell_error(shell, "Battery not attached, aborting...");
 			return -ENOEXEC;
 		}
-		if ((abs(old_percent - percent) > 5) && ((percent % 5) == 0)) {
-			shell_print(shell, "Battery level is now (%d%%)...", percent);
-			old_percent = percent;
+
+		if ((abs(old_percent - data->percent) > 5) && (( data->percent % 5) == 0)) {
+			shell_print(shell, "Battery level is now (%d%%)...", data->percent);
+			old_percent = data->percent;
 		}
 	}
 
-	shell_print(shell, "Battery is discharged (%d%%), shutting down...", percent);
+	shell_print(shell, "Battery is discharged (%d%%), shutting down...", data->percent);
 	cmd_pmsysfulloff(shell, 0, NULL);
-
 	return 0;
 }
 
 int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 {
-	uint8_t percent = 0;
-	uint32_t millivolts = 0;
-	uint8_t battery_attached = 0;
-	uint8_t charging = 0;
-        uint8_t vbus = 0;
-	uint8_t fault= 0;
+	int err;
+	struct batmon_data *data = battery_dev->data;
 
-	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	millivolts = read_battery_voltage();
-	millivolts_to_percent(millivolts, &percent);
-	shell_print(shell, "\tBattery level %d percent", percent);
+	k_msleep(500);
+
+	err = adc_read(battery_dev, NULL);
+	if (err < 0) {
+		shell_print(shell,"Could not read (%d)\n", err);
+	}
+
+	shell_print(shell, "\tBattery level %d percent", data->percent);
 	return 0;
 }
 
@@ -2348,6 +2355,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_battery_sub,
 		SHELL_CMD(discharge, NULL, "Discharge battery for shipping", cmd_battery_discharge),
 		SHELL_CMD(percent, NULL, "Get battery level (percent)", cmd_battery_percentage),
 		SHELL_CMD(voltage, NULL, "Get battery level (Volts)", cmd_battery_voltage),
+		SHELL_CMD(id, NULL, "Get battery ID", cmd_battery_hwid),
 		SHELL_SUBCMD_SET_END
 		);
 
@@ -2412,12 +2420,6 @@ int cmd_tmo_cert_modem_load(const struct shell* shell, int argc, char **argv)
 	return 0;
 }
 #endif
-
-int cmd_hwid(const struct shell* shell, int argc, char **argv)
-{
-	shell_print(shell, "HWID Value = %d", read_hwid());
-	return 0;
-}
 
 SHELL_STATIC_SUBCMD_SET_CREATE(certs_sub,
 		SHELL_CMD(dld, NULL, "Download certificates", cmd_tmo_cert_dld),
@@ -2497,7 +2499,6 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_tmo,
 		SHELL_CMD(file, &tmo_file_sub, "File commands", NULL),
 		SHELL_CMD(gnssversion, NULL, "Get GNSS chip version", cmd_gnss_version),
 		SHELL_CMD(http, NULL, "Get http URL", cmd_http),
-		SHELL_CMD(hwid, NULL, "Read the HWID divider voltage", cmd_hwid),
 		SHELL_CMD(ifaces, NULL, "List network interfaces", cmd_list_ifaces),
 		SHELL_CMD(json, &tmo_json_sub, "JSON data options", NULL),
 #if CONFIG_TMO_SHELL_BUILD_EK
@@ -2560,7 +2561,13 @@ void tmo_shell_main (void)
 	mountfs();
 
 	cxd5605_init();
-	initADC();
+
+    battery_dev = DEVICE_DT_GET_ANY(silabs_battery_adc);
+	if (!battery_dev) {
+		printf("Battery driver error\n");
+		exit(-1);
+	}
+
 	shell = shell_backend_uart_get_ptr();
 #ifdef CONFIG_WIFI
 	tmo_wifi_connect();
