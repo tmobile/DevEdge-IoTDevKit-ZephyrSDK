@@ -16,6 +16,8 @@
 #include "tmo_battery_ctrl.h"
 #include "tmo_adc.h"
 #include "board.h"
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(tmo_adc, LOG_LEVEL_INF);
 
 #define adcFreq   16000000
 K_SEM_DEFINE(adc_sem, 0, 1);
@@ -27,14 +29,14 @@ static ADC_InitSingle_TypeDef initSingle_hwid = ADC_INITSINGLE_DEFAULT;
  * @brief Set the VBAT_SNS_EN Pin High to enable ADC readings
  * 
  */
-static void set_vbat_sens_en(void)
+static void set_vbat_sens_en(bool enable)
 {
 	//   pin = 0
 	//   mode = gpioModeEnabled;
 	//   out is 1 otherwise it will be input 
 	//   Set PK0/PinE2 as output so it can be
 #ifdef VBAT_EN_PORT
-	GPIO_PinModeSet(VBAT_EN_PORT, VBAT_EN_PIN, gpioModePushPull, 1);
+	GPIO_PinModeSet(VBAT_EN_PORT, VBAT_EN_PIN, gpioModePushPull, enable);
 #endif /* VBAT_EN_PORT */
 }
 
@@ -44,7 +46,6 @@ static void set_vbat_sens_en(void)
  */
 void initADC(void)
 {
-	set_vbat_sens_en();
 
 	// Enable ADC0 clock
 	CMU_ClockEnable(cmuClock_ADC0, true);
@@ -77,7 +78,7 @@ void initADC(void)
 
 	int hwid = read_hwid();
 
-	printf("HWID = %d\n", hwid);
+	LOG_INF("HWID = %d\n", hwid);
 }
 
 /**
@@ -125,6 +126,10 @@ int read_battery_voltage(void)
 	float millivolts_f;
 	// Start ADC conversion
 	k_sem_take(&adc_sem, K_MSEC(500));
+	
+	set_vbat_sens_en(true);
+	k_msleep(100);
+
 	ADC_InitSingle(ADC0, &initSingle_bv);
 	ADC_Start(ADC0, adcStartSingle);
 
@@ -133,6 +138,8 @@ int read_battery_voltage(void)
 
 	// Get ADC result
 	sample = ADC_DataSingleGet(ADC0);
+
+	set_vbat_sens_en(false);
 
 	k_sem_give(&adc_sem);
 
@@ -162,6 +169,10 @@ int read_hwid(void)
 	float millivolts_f;
 	// Start ADC conversion
 	k_sem_take(&adc_sem, K_MSEC(500));
+
+	set_vbat_sens_en(true);
+	k_msleep(100);
+
 	ADC_InitSingle(ADC0, &initSingle_hwid);
 	ADC_Start(ADC0, adcStartSingle);
 
@@ -170,6 +181,8 @@ int read_hwid(void)
 
 	// Get ADC result
 	sample = ADC_DataSingleGet(ADC0);
+
+	set_vbat_sens_en(false);
 
 	k_sem_give(&adc_sem);
 

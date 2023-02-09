@@ -1,0 +1,58 @@
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      ZEPHYR_APPLICATION:
+        required: true
+        type: string
+        default: ../DevEdge-IoTDevKit-ZephyrSDK/samples/tmo_shell
+      ZEPHYR_BOARD:
+        required: true
+        type: string
+        default: tmo_dev_edge
+      ZEPHYR_DBOARD_ROOT:
+        required: true
+        type: string
+        default: zephyrproject/boards
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: zephyrprojectrtos/ci:latest
+    steps:
+      - uses: actions/checkout@v3
+        name: Clone ${{ github.repository }}
+        if: ${{ github.repository != 'tmobile/DevEdge-IoTDevKit-ZephyrSDK' }}
+      - uses: actions/checkout@v3
+        name: Clone ZephyrSDK
+        with:
+            repository: 'tmobile/DevEdge-IoTDevKit-ZephyrSDK'
+            path: zephyrproject/DevEdge-IoTDevKit-ZephyrSDK
+      - uses: actions/checkout@v3
+        name: Clone ZephyrRTOS
+        with:
+            repository: 'tmobile/DevEdge-IoTDevKit-ZephyrRTOS'
+            path: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
+      - name: West Init and Update
+        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
+        run: |
+          west init -l .
+          west update
+      - name: West Build
+        working-directory: zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
+        env: 
+          ZEPHYR_BASE: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS
+          ZEPHYR_SDK_INSTALL_DIR: /opt/toolchains/
+        run: |
+          west build ${{ inputs.ZEPHYR_APPLICATION }} -p -b ${{ inputs.ZEPHYR_BOARD }} -- -DBOARD_ROOT=${{ inputs.ZEPHYR_DBOARD_ROOT }}
+      - name: Archive firmware
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ inputs.ZEPHYR_BOARD }}
+          path: ${{ github.workspace }}/zephyrproject/DevEdge-IoTDevKit-ZephyrRTOS/build/zephyr/zephyr.*

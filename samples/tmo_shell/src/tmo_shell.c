@@ -16,7 +16,7 @@ LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 #include <stdio.h>
 #include <zephyr/fs/fs.h>
 #include <zephyr/kernel.h>
-#include <fcntl.h>
+#include <zephyr/posix/fcntl.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
@@ -1992,6 +1992,7 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
+extern uint8_t aio_btn_pushed;
 int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 {
 	uint8_t old_percent = 0;
@@ -2018,6 +2019,7 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	} else if ( data->percent > 60) {
 		shell_print(shell, "Discharging battery, this may take a while...");
 	}
+	shell_print(shell, "Press user button to abort...");
 
 	if ( data->percent < 60) {
 		shell_warn(shell, "Battery already below 60%% (%d%%)",  data->percent);
@@ -2040,6 +2042,16 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		if ((abs(old_percent - data->percent) > 5) && (( data->percent % 5) == 0)) {
 			shell_print(shell, "Battery level is now (%d%%)...", data->percent);
 			old_percent = data->percent;
+		}
+		if (aio_btn_pushed) {
+			shell_warn(shell, "Button pressed, battery discharging aborted!");
+#ifdef LED_PWM_WHITE
+			led_off(device_get_binding("pwmleds"), LED_PWM_WHITE);
+#endif /* LED_PWM_WHITE */
+			led_off(device_get_binding("pwmleds"), LED_PWM_RED);
+			led_off(device_get_binding("pwmleds"), LED_PWM_GREEN);
+			led_off(device_get_binding("pwmleds"), LED_PWM_BLUE);
+			return -ENOEXEC;
 		}
 	}
 
@@ -2472,8 +2484,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_sys_pm,
 	SHELL_CMD(fulloff, NULL, "Put system into the off state (Without RTCC)", cmd_pmsysfulloff),
 	SHELL_CMD(idle, NULL, "Put system into idle state", cmd_pmsysidle),
 	SHELL_CMD(off, NULL, "Put system into the off state (Retaining RTCC)", cmd_pmsysoff),
-	/* Disabled until fixed in SOC code*/
-	// SHELL_CMD(standby, NULL, "Put system into the standby state", cmd_pmsysstandby),
+	SHELL_CMD(standby, NULL, "Put system into the standby state", cmd_pmsysstandby),
 	SHELL_CMD(suspend, NULL, "Put system into the suspend state", cmd_pmsyssuspend),
 	SHELL_SUBCMD_SET_END
 	);

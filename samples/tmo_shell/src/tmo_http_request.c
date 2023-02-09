@@ -22,7 +22,7 @@ LOG_MODULE_REGISTER(tmo_http_request, LOG_LEVEL_DBG);
 
 #if CONFIG_MODEM
 #include <zephyr/drivers/modem/murata-1sc.h>
-#include <fcntl.h>
+#include <zephyr/posix/fcntl.h>
 #endif
 
 #define MAX_RECV_BUF_LEN 512
