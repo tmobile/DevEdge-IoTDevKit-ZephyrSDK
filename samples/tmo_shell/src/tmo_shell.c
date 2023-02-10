@@ -1593,8 +1593,10 @@ void print_set_modem_edrx_usage(const struct shell *shell)
 
 void print_set_modem_psm_usage(const struct shell *shell)
 {
-	shell_print(shell, "tmo modem <iface> psm <mode> <T3312> <T3314> <T3412> <T3324>");
-	shell_print(shell, "mode: 0 - off, 1 - on, T3312: 0-7  T3314: 0,1,2,7  T3412: 0-7  T3324: 0,1,2,7");
+	shell_print(shell, "tmo modem <iface> psm <mode> <T3412_Unit> <T3412_val> "
+		"<T3324_Unit> <T3324_Val>");
+	shell_print(shell, "mode: 0 - off, 1 - on, T3412_Unit: 0-7 T3412_Val: 0-31"
+		" T3324_Unit: 0-7 T3324_Val: 0-31");
 }
 
 int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **argv, int sd)
@@ -1604,18 +1606,20 @@ int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **arg
 	if (argc == 8) {
 		// This is setting the PSM timer
 		int mode = strtol(argv[3], NULL, 10);
-		int t3312 = strtol(argv[4], NULL, 10);
-		int t3314 = strtol(argv[5], NULL, 10);
-		int t3412 = strtol(argv[6], NULL, 10);
+		int t3412_mul = strtol(argv[4], NULL, 10);
+		int t3412 = strtol(argv[5], NULL, 10);
+		int t3324_mul = strtol(argv[6], NULL, 10);
 		int t3324 = strtol(argv[7], NULL, 10);
-		if ( (mode >= 0 && mode <=1) &&  (t3312 >= 0 && t3312 <= 7) &&
-				(t3314  >= 0 && (t3314 <= 2 || t3314 == 7) )  &&
-				(t3412 >=0 && t3412 <= 7) &&
-				(t3324  >= 0 && (t3324 <= 2 || t3324 == 7) ) ) {
-			u->psm.mode = mode; u->psm.t3312_mask = t3312; u->psm.t3314_mask = t3314; u->psm.t3412_mask = t3412;
-			u->psm.t3324_mask = t3324;
-			shell_print(shell, "Set PSM mode: %d, T3312: %d, T3314: %d, T3412: %d, T3324: %d",
-					mode, t3312, t3314, t3412, t3324);
+		if ( (mode >= 0 && mode <=1) &&  (t3412_mul >= 0 && t3412_mul <= 7) &&
+				((t3324_mul >= 0 && t3324_mul <= 2) || t3324_mul == 7)  &&
+				(t3412 >=0 && t3412 <= 31) && (t3324 >=0 && t3324 <= 31) ) {
+			u->psm.mode = mode;
+			u->psm.t3412 = t3412 + (t3412_mul << 5);
+			u->psm.t3324 = t3324 + (t3324_mul << 5);
+
+			shell_print(shell, "Set PSM mode: %d,\n"
+					"\tT3412 Unit: %d, T3412 Value: %d, T3324 Unit: %d, T3324 Value: %d",
+					mode, t3412_mul, t3412, t3324_mul, t3324);
 			tmo_set_modem(AT_MODEM_PSM_SET,(union params_cmd*) u, sd);
 		} else {
 			shell_print(shell, "Invalid inputs for PSM timer");
