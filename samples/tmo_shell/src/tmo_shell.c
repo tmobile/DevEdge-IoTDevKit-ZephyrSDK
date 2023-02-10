@@ -55,6 +55,7 @@ typedef int sec_tag_t;
 #include "tmo_sntp.h"
 #include "tmo_modem.h"
 #include "board.h"
+#include "dfu_gecko_lib.h"
 
 #if CONFIG_TMO_SHELL_BUILD_EK
 #include "ek18/src/kermit_cmd.h"
@@ -95,7 +96,6 @@ const struct device *gecko_flash_dev = NULL;
 
 extern const struct device *ext_flash_dev;
 extern const struct device *gecko_flash_dev;
-extern int get_gecko_fw_version(void);
 extern uint32_t getData;
 extern int buzzer_test();
 extern int led_test();
@@ -1784,16 +1784,86 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 		return tmo_dfu_download(shell, target, "rs9116w/RS9116W.2.7.0.0.39", argv[3]);
 	}
 
+#ifndef BOOT_SLOT
+	shell_warn(shell, "Bootloader is not in use");
+#endif
 	return tmo_dfu_download(shell, target, argv[2], argv[3]);
 }
 
-int cmd_dfu_get_slot(const struct shell *shell, size_t argc, char **argv)
-{
 #ifdef BOOT_SLOT
-	shell_print(shell, "Slot %s", BOOT_SLOT);
-#else
-	shell_print(shell, "Slot Undefined");
+
+static int cmd_get_current_slot(const struct shell *shell, size_t argc, char **argv)
+{
+	int slot = get_current_slot();
+
+	if (slot >= 0) {
+		shell_print(shell, "Current active slot is Slot %d", slot);
+	} else {
+		shell_error(shell, "Current active slot is undefined");
+	}
+	return slot;
+}
+
+static int cmd_get_unused_slot(const struct shell *shell, size_t argc, char **argv)
+{
+	int slot = get_unused_slot();
+
+	if (slot >= 0) {
+		shell_print(shell, "Unused/inactive slot  is Slot %d", slot);
+	} else {
+		shell_error(shell, "Unused/inactive slot is undefined");
+	}
+
+	return slot;
+}
+
+static int cmd_erase_slot(const struct shell *shell, size_t argc, char **argv)
+{
+	int force = 0;
+
+	if (argc < 2) {
+		shell_error(shell, "Missing required arguments");
+		shell_print(shell, "Usage: tmo bootloader erase <slot #> [1 to force]\n"
+				"       slot #: 0 for Slot 0, 1 for Slot 1\n");
+		return -EINVAL;
+	}
+
+	int slot = strtol(argv[1], NULL, 10);
+	if (argc == 3) {
+		force = strtol(argv[2], NULL, 10);
+	}
+
+	if (force || slot_is_safe_to_erase(slot)) {
+		int ret =  erase_image_slot(slot);
+		if (ret == 0) {
+			shell_print(shell, "Slot %d was erased", slot);
+		}
+		else {
+			shell_error(shell, "Slot %d removal failed", slot);
+			return -ENOEXEC;
+		}
+	}
+	else {
+		shell_error(shell, "Not safe to erase Slot %d", slot);
+		return -ENOEXEC;
+	}
+	return 0;
+}
+
+static int cmd_print_slot_info(const struct shell *shell, size_t argc, char **argv)
+{
+	print_gecko_slot_info();
+	return 0;
+}
+
 #endif
+
+static int cmd_version(const struct shell *shell, size_t argc, char **argv)
+{
+	shell_print(shell, "Built for: %s", VERSION_BOARD);
+	shell_print(shell, "Zephyr:    %s", VERSION_ZEPHYR_BASE_TAG);
+	shell_print(shell, "TMO RTOS:  %s", VERSION_TMO_RTOS_TAG);
+	shell_print(shell, "TMO SDK:   %s", VERSION_TMO_SDK_TAG);
 	return 0;
 }
 
@@ -1806,17 +1876,24 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	shell_print(shell, "cmd_dfu_get_version: target: %d\n", (int) strtol(argv[1], NULL, 10));
-
 	int version_target = (int) strtol(argv[1], NULL, 10);
 	switch (version_target)
 	{
 		case DFU_GECKO:
 			{
-				int status = get_gecko_fw_version();
-				if (status != 0) {
-					shell_error(shell, "reading the Pearl Gecko FW version failed\n");
+#ifndef BOOT_SLOT
+				shell_print(shell, "NOTE: Bootloader not in use");
+#else
+				char version[16];
+				int slot = atoi(BOOT_SLOT);
+				int ret = get_gecko_fw_version(slot, version, sizeof(version));
+				if (ret) {
+					shell_error(shell, "Could not read version in slot %d", slot);
+				} else {
+					shell_print(shell, "Active slot is %d, version: %s", slot, version);
 				}
+#endif
+				cmd_version(shell, argc, argv);
 			}
 			break;
 
@@ -1882,17 +1959,16 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 	{
 		case DFU_GECKO:
 			{
-#ifdef BOOT_SLOT
+#ifndef BOOT_SLOT
+				shell_error(shell,"Can't program over currently running firmware");
+				return -EINVAL;
+#else
 				if ((strcmp(BOOT_SLOT, "0") || strcmp(BOOT_SLOT, "1"))) {
 					if (atoi(BOOT_SLOT) == delta_firmware_target) {
 						shell_error(shell,"Can't program slot you are running from");
 						return -EINVAL;
 					}
 				}
-#else
-				shell_error(shell,"Can't program over currently running firmware");
-				return -EINVAL;
-#endif
 
 				int status;
 				char bin_file[DFU_FILE_LEN];
@@ -1905,11 +1981,11 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 					strcpy(bin_file, "/tmo/zephyr.slot1.bin");
 					strcpy(sha_file, "/tmo/zephyr.slot1.bin.sha1");
 				} else {
-					shell_error(shell, "Invalid Slot Number.");
+					shell_error(shell, "Invalid slot number");
 					return -EINVAL;
 				}
 
-				shell_print(shell,"\nStarting the FW update for SiLabs Pearl Gecko");
+				shell_print(shell,"Starting the FW update for SiLabs Pearl Gecko");
 				status = dfu_mcu_firmware_upgrade(delta_firmware_target,bin_file,sha_file);
 				if (status != 0) {
 					shell_error(shell, "The FW update for SiLabs Pearl Gecko failed");
@@ -1917,6 +1993,7 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 				else {
 					shell_print(shell, "The FW update for SiLabs Pearl Gecko is complete!");
 				}
+#endif
 			}
 			break;
 
@@ -2112,7 +2189,6 @@ int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 	shell_print(shell, "\tBattery level %d percent", percent);
 	return 0;
 }
-
 
 int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv)
 {
@@ -2353,15 +2429,6 @@ int cmd_play_tone(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
-static int cmd_version(const struct shell *shell, size_t argc, char **argv)
-{
-	printf("Built for: %s\n", VERSION_BOARD);
-	printf("Zephyr:    %s\n", VERSION_ZEPHYR_BASE_TAG);
-	printf("TMO RTOS:  %s\n", VERSION_TMO_RTOS_TAG);
-	printf("TMO SDK:   %s\n", VERSION_TMO_SDK_TAG);
-	return 0;
-}
-
 SHELL_STATIC_SUBCMD_SET_CREATE(tmo_json_sub,
 		SHELL_CMD(base_url, NULL, "Set JSON base URL", cmd_json_base_url),
 		SHELL_CMD(disable, NULL, "Disable JSON transmission", cmd_json_transmit_disable),
@@ -2395,7 +2462,6 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_dfu_sub,
 		SHELL_CMD(settings, NULL, "Print DFU settings", cmd_dfu_print_settings),
 		SHELL_CMD(update, NULL, "Update FW", cmd_dfu_update),
 		SHELL_CMD(version, NULL, "Get current FW version", cmd_dfu_get_version),
-		SHELL_CMD(slot, NULL, "Get current slot", cmd_dfu_get_slot),
 		SHELL_SUBCMD_SET_END
 		);
 
@@ -2406,6 +2472,16 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_battery_sub,
 		SHELL_CMD(voltage, NULL, "Get battery level (Volts)", cmd_battery_voltage),
 		SHELL_SUBCMD_SET_END
 		);
+
+#ifdef BOOT_SLOT
+SHELL_STATIC_SUBCMD_SET_CREATE(tmo_bootloader_sub,
+		SHELL_CMD(current, NULL, "Get current active slot", cmd_get_current_slot),
+		SHELL_CMD(erase, NULL, "Erase a slot image", cmd_erase_slot),
+		SHELL_CMD(images, NULL, "Get slot images info", cmd_print_slot_info),
+		SHELL_CMD(unused, NULL, "Get unused slot", cmd_get_unused_slot),
+		SHELL_SUBCMD_SET_END
+		);
+#endif
 
 int cmd_tmo_buzzer_vol(const struct shell *shell, int argc, char**argv)
 {
@@ -2543,6 +2619,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_file_sub,
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_tmo,
 		SHELL_CMD(battery, &tmo_battery_sub, "Battery and charger status", NULL),
 		SHELL_CMD(ble, &tmo_ble_sub, "BLE test commands", NULL),
+#ifdef BOOT_SLOT
+		SHELL_CMD(bootloader, &tmo_bootloader_sub, "Bootloader status", NULL),
+#endif
 		SHELL_CMD(buzzer, &tmo_buzzer_sub, "Buzzer tests", NULL),
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 		SHELL_CMD(certs, &certs_sub, "CA cert commands", NULL),
@@ -2590,25 +2669,27 @@ static void count_ifaces(struct net_if *iface, void *user_data)
 	num_ifaces++;
 }
 
-void tmo_shell_main (void)
+void tmo_shell_main(void)
 {
+	shell = shell_backend_uart_get_ptr();
+
 	net_if_foreach(count_ifaces, NULL);
 	ext_flash_dev = device_get_binding(FLASH_DEVICE);
 
 	if (!ext_flash_dev) {
-		printf("SPI NOR external flash driver %s was not found!\n", FLASH_DEVICE);
+		shell_print(shell, "External flash driver %s was not found!", FLASH_DEVICE);
 		exit(-1);
 	}
 	else {
-		printf("SPI NOR external flash driver %s ready!\n", FLASH_DEVICE);
+		shell_print(shell, "External flash driver %s ready!", FLASH_DEVICE);
 	}
 
 	gecko_flash_dev = device_get_binding(GECKO_FLASH_DEVICE);
         if (!gecko_flash_dev) {
-                printf("\nGECKO_FLASH_DEVICE : Device driver GECKO_FLASH_DEVICE not found\n");
+                shell_print(shell, "Gecko flash driver not found");
         }
         else {
-                printf("Gecko flash driver GECKO_FLASH_DEVICE ready!\n");
+                shell_print(shell, "Gecko flash driver %s ready!", GECKO_FLASH_DEVICE);
         }
 
 	// mount the flash file system
@@ -2616,12 +2697,11 @@ void tmo_shell_main (void)
 
 	cxd5605_init();
 	initADC();
-	shell = shell_backend_uart_get_ptr();
 #ifdef CONFIG_WIFI
 	tmo_wifi_connect();
 #endif
 
 #ifdef BOOT_SLOT
-	printf("BOOT_SLOT: %s\n", BOOT_SLOT);
+	shell_print(shell, "BOOT_SLOT: %s", BOOT_SLOT);
 #endif
 }

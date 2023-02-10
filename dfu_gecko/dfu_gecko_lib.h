@@ -16,14 +16,6 @@
 #define DFU_SHA1_LEN 20
 #define DFU_URL_LEN  256
 
-#define CONFIG_MCU_NAME "Pearl Gecko"
-
-#define LOG_INFO printf
-#define LOG_DEBUG printf
-#define LOG_ERROR printf
-#define LOG_WARN printf
-#define ENDL ""
-
 struct dfu_file_t {
 	char desc[DFU_DESC_LEN];
 	char lfile[DFU_FILE_LEN];
@@ -31,10 +23,16 @@ struct dfu_file_t {
 	char sha1[DFU_SHA1_LEN];
 };
 
-//const struct dfu_file_t *dfu_file;
+#ifdef BOOT_SLOT
 
-int get_gecko_fw_version (void);
-int get_oldest_slot();
+int is_bootloader_running(void);
+int erase_image_slot(int slot);
+int get_gecko_fw_version(int boot_slot, char *version, int max_len);
+int print_gecko_slot_info(void);
+int get_current_slot(void);
+int get_unused_slot(void);
 int dfu_mcu_firmware_upgrade(int slot_to_upgrade, char *bin_file, char *sha_file);
+bool slot_is_safe_to_erase(int slot);
+#endif
 
 #endif
