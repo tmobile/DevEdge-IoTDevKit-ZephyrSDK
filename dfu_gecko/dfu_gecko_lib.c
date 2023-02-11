@@ -650,33 +650,6 @@ int dfu_mcu_firmware_upgrade(int slot_to_upgrade, char *bin_file, char *sha_file
 	sys_le##sz##_to_cpu(*((uint##sz##_t *)var));                                               \
 	var = ((uint8_t *)var) + sizeof(uint##sz##_t);
 
-/**
- * @brief Deserialize the magic header once read from flash
- *
- * @param dst The dest structure to write into
- * @param read_buf The buffer read from flash
- */
-static void deserialize_magic_hdr(struct image_header *dst, uint8_t *read_buf)
-{
-	if (!dst || !read_buf) {
-		return;
-	}
-
-	dst->ih_magic = POP(read_buf, 32);
-	dst->ih_load_addr = POP(read_buf, 32);
-	dst->ih_hdr_size = POP(read_buf, 16);
-	dst->ih_protect_tlv_size = POP(read_buf, 16);
-	dst->ih_img_size = POP(read_buf, 32);
-	dst->ih_flags = POP(read_buf, 32);
-
-	dst->ih_ver.iv_major = read_buf[0];
-	read_buf++;
-	dst->ih_ver.iv_minor = read_buf[0];
-	read_buf++;
-	dst->ih_ver.iv_revision = POP(read_buf, 16);
-	dst->ih_ver.iv_build_num = POP(read_buf, 32);
-}
-
 #ifdef BOOT_SLOT
 int get_current_slot()
 {
