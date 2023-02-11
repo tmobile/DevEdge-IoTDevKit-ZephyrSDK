@@ -160,7 +160,7 @@ int tcp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 {
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -211,7 +211,7 @@ int tcp_create_tls_core(const struct shell *shell, size_t argc, char **argv, int
 
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -282,7 +282,7 @@ int udp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 {
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -336,7 +336,7 @@ int udp_create_dtls_core(const struct shell *shell, size_t argc, char **argv, in
 	int ret = 0;
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -551,7 +551,7 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 4){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int ret;
@@ -679,7 +679,7 @@ int sock_bind(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 4){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int sd = strtol(argv[1], NULL, 10);
@@ -711,7 +711,7 @@ int sock_send(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 3){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -742,7 +742,7 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 5){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -831,7 +831,7 @@ int sock_sendb(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 3){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -920,7 +920,7 @@ int sock_recvb(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 3){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -973,7 +973,7 @@ int sock_rcv(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int sd = (int)strtol(argv[1], NULL, 10);
@@ -1017,7 +1017,7 @@ int sock_rcvfrom(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int sd = (int)strtol(argv[1], NULL, 10);
@@ -1068,7 +1068,7 @@ int sock_close(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int sd = strtol(argv[1], NULL, 10);
@@ -1103,7 +1103,7 @@ int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 
 	if (argc != 4){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -1134,7 +1134,7 @@ int sock_recvsms(const struct shell *shell, size_t argc, char **argv)
 
 	if (argc != 3){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -1492,7 +1492,7 @@ int cmd_http(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Missing required argument");
 		shell_print(shell, "Usage: tmo http <devid> <URL> <file (optional)>\n"
 				"       devid: 1 for modem, 2 for wifi\n");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 
@@ -1744,7 +1744,7 @@ int cmd_dfu_set_iface(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -2309,7 +2309,7 @@ int cmd_json_set_iface(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc < 2) {
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -2326,7 +2326,7 @@ int cmd_json_transmit_interval(const struct shell *shell, size_t argc, char **ar
 {
 	if (argc < 2) {
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int secs = strtol(argv[1], NULL, 10);

@@ -284,7 +284,7 @@ int cmd_wifi_connect(const struct shell *shell, size_t argc,
 
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -333,7 +333,7 @@ int cmd_wifi_disconnect(const struct shell *shell, size_t argc,
 {
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -384,7 +384,7 @@ int cmd_wifi_scan(const struct shell *shell, size_t argc, char *argv[])
 	// struct net_if *iface = net_if_get_default();
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -423,7 +423,7 @@ int cmd_wifi_status(const struct shell *shell, size_t argc, char *argv[])
 	// struct net_if *iface = net_if_get_default();
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
@@ -512,7 +512,7 @@ int cmd_wifi_mac(const struct shell *shell, size_t argc, char *argv[])
 	// struct net_if *iface = net_if_get_default();
 	if (argc < 2){
 		shell_error(shell, "Missing required arguments");
-		z_shell_help_subcmd_print_selitem(shell);
+		shell_help(shell);
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
