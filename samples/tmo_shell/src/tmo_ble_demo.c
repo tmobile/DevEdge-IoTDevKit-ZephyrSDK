@@ -190,28 +190,27 @@ static ssize_t battery_voltage_get(struct bt_conn *conn,
 				const struct bt_gatt_attr *attr, void *buf,
 				uint16_t len, uint16_t offset)
 {
-        uint8_t percent = 0;
-        uint32_t millivolts = 0;
-        uint8_t battery_attached = 0;
-        uint8_t charging = 0;
-        uint8_t vbus = 0;
-        uint8_t fault = 0;
+	uint8_t percent = 0;
+	uint32_t millivolts = 0;
+	uint8_t battery_attached = 0;
+	uint8_t charging = 0;
+	uint8_t vbus = 0;
+	uint8_t fault = 0;
 
-        get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 
-        /* flush the fault status out by reading again */
-        if (fault) {
-                get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-        }
-        /* there can be 2 of these to flush */
-        if (fault) {
-                get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-        }
+	/* flush the fault status out by reading again */
+	if (fault) {
+		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	}
+	/* there can be 2 of these to flush */
+	if (fault) {
+		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	}
 
-        if (battery_attached) {
-                millivolts = read_battery_voltage();
-                millivolts_to_percent(millivolts, &percent);
-        }
+	millivolts = read_battery_voltage();
+	millivolts_to_percent(millivolts, &percent);
+	
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, (uint8_t*) &percent, 1);
 }
 
@@ -223,7 +222,7 @@ static ssize_t battery_power_source_get(struct bt_conn *conn,
 	uint8_t charging, vbus, battery_attached, fault;
 
 	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (vbus || !battery_attached) {
+	if (vbus) {
 		power_source = ON_CHARGER_POWER;
 	} else {
 		power_source = ON_BATTERY_POWER;
@@ -827,14 +826,12 @@ void ble_notif_thread(void *a, void *b, void *c)
 		uint8_t charging, vbus, battery_attached, fault, percent;
 	
 		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-		if (battery_attached) {
-			uint32_t millivolts = read_battery_voltage();
-			millivolts_to_percent(millivolts, &percent);
-			if (battery_last_percent != percent) {
-				bt_gatt_notify(NULL, &bas.attrs[1], &percent, sizeof(percent));
-			}
-			battery_last_percent = percent;
+		uint32_t millivolts = read_battery_voltage();
+		millivolts_to_percent(millivolts, &percent);
+		if (battery_last_percent != percent) {
+			bt_gatt_notify(NULL, &bas.attrs[1], &percent, sizeof(percent));
 		}
+		battery_last_percent = percent;
 	}
 }
 
