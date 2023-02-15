@@ -1,2 +1,2 @@
 #!/bin/bash
-git log | grep -A2 -m1 "Merge branch 'main' into tmo-main" | grep commit | awk '{print $2}'
+git log --grep "Merge branch 'main' into tmo-main" --max-count 1 --pretty="format:%H"
