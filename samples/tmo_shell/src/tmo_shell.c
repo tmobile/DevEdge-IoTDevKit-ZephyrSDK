@@ -1785,7 +1785,9 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 	}
 
 #ifndef BOOT_SLOT
-	shell_warn(shell, "Bootloader is not in use");
+	if (target == 0) {
+		shell_warn(shell, "Bootloader is not in use");
+	}
 #endif
 	return tmo_dfu_download(shell, target, argv[2], argv[3]);
 }
