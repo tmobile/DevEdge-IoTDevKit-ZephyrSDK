@@ -304,7 +304,6 @@ int tmo_cert_dld(int devid, char *url)
 	fs_close(&tmp_file);
 	fs_unlink("/tmo/certs.tmp");
 	
-	// ret = http_client_req(sock, &req, 5000, &file);
 	printf("Downloaded %d certs, installed %d sucessfully\n", cert_cnt, success_cnt);
 exit:
 	fs_close(&file);

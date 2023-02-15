@@ -8,7 +8,7 @@
 #define DFU_MURATA_1SC_H
 
 #include <stdint.h>
-#include "dfu_gecko_lib.h"
+#include "tmo_dfu_download.h"
 
 #define DFU_MODEM_FW_VER_SIZE 32
 #define UA_HEADER_SIZE 256
