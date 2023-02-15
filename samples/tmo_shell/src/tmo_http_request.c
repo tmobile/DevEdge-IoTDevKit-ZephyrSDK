@@ -38,6 +38,9 @@ static const char* aws_session_file = "/tmo/aws_session.txt";
 static char* suffix = "aaaaaaaa";
 #endif
 
+/* Set the timeout for http requests to 10 minutes (in milliseconds) */
+#define HTTP_CLIENT_REQ_TIMEOUT (10 * 60 * 1000)
+
 int get_endpoint()
 {
 	int rc = 0;
@@ -217,7 +220,7 @@ void tmo_http_json()
 		printf("Error connecting socket, error: %d, errno: %d\n", ret, errno);
 	} else {
 		printf("Sending request...\n");
-		ret = http_client_req(sock, &req, 5000, NULL);
+		ret = http_client_req(sock, &req, HTTP_CLIENT_REQ_TIMEOUT, NULL);
 		printf("http_client_req returned %d\n", ret);
 	}
 	zsock_freeaddrinfo(res);
@@ -460,7 +463,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 			goto exit;
 		}
 		errno = 0;
-		ret = http_client_req(sock, &req, 5000, &file);
+		ret = http_client_req(sock, &req, HTTP_CLIENT_REQ_TIMEOUT, &file);
 		while (http_content_length && http_content_length > http_total_received && fail_count < 5) {
 			fail_count++;
 			printf("\nTransfer failure detected, reinitializing transfer... (%d/5) (%d < %d)\n", fail_count, http_total_received, http_content_length);
@@ -479,7 +482,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 			headers[0] = range_header;
 			req.header_fields = (const char**)headers;
 			// req.header_fields
-			http_client_req(sock, &req, 5000, &file);
+			http_client_req(sock, &req, HTTP_CLIENT_REQ_TIMEOUT, &file);
 		}
 		if (http_total_received == http_total_written) {
 			printf("\nReceived:%d, Wrote: %d\n", http_total_received, http_total_written);
@@ -488,7 +491,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 		}
 	} else {
 		errno = 0;
-		ret = http_client_req(sock, &req, 5000, NULL);
+		ret = http_client_req(sock, &req, HTTP_CLIENT_REQ_TIMEOUT, NULL);
 		while (http_content_length && http_content_length > http_total_received && fail_count < 5) {
 			fail_count++;
 			printf("\nTransfer failure detected, reinitializing transfer... (%d/5) (%d < %d)\n", fail_count, http_total_received, http_content_length);
@@ -507,7 +510,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 			headers[0] = range_header;
 			req.header_fields = (const char**)headers;
 			// req.header_fields
-			http_client_req(sock, &req, 5000, &file);
+			http_client_req(sock, &req, HTTP_CLIENT_REQ_TIMEOUT, &file);
 		}
 		printf("\n\nReceived:%d\n", http_total_received);
 	}
