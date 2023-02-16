@@ -1,15 +1,22 @@
-#!/bin/sh
+#!/bin/bash
 
 # adds any out of tree drivers built as modules to the zephyr build path
-if [ "$SHELL" = "/bin/zsh" ]; then
-    BASH_SOURCE=${(%):-%x}
+
+if [ -n "$ZSH_VERSION" ]; then 
+    SCRIPT=${(%):-%x}
+elif [ -n "$BASH_VERSION" ]; then
+    SCRIPT=${BASH_SOURCE[0]}
+elif eval '[[ -n ${.sh.file} ]]' 2>/dev/null; then
+    eval 'SCRIPT=${.sh.file}'
 fi
-LOCATION=$(dirname $(realpath -s $BASH_SOURCE))
-
-export ZEPHYR_EXTRA_MODULES=$ZEPHYR_EXTRA_MODULES\;$LOCATION
-
+LOCATION=$(dirname "$(readlink -f -- "$SCRIPT")")
+if [ -n "${ZEPHYR_EXTRA_MODULES+1}" ]; then
+    export ZEPHYR_EXTRA_MODULES="$ZEPHYR_EXTRA_MODULES\;$LOCATION"
+else
+    export ZEPHYR_EXTRA_MODULES="$LOCATION"
+fi
 #add lines as needed for each driver below
 
 #export ZEPHYR_EXTRA_MODULES=$ZEPHYR_EXTRA_MODULES\;$LOCATION/drivers/(another driver here)
 
-echo $ZEPHYR_EXTRA_MODULES
+echo "$ZEPHYR_EXTRA_MODULES"

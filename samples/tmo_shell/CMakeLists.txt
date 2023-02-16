@@ -12,7 +12,6 @@ project(tmo_shell)
 zephyr_include_directories(${BOARD_DIR})
 
 target_include_directories(app PRIVATE ${ZEPHYR_BASE}/subsys/ PRIVATE ${ZEPHYR_BASE}/drivers/modem/ PRIVATE ${ZEPHYR_BASE}/drivers/wifi/rs9116w)
-FILE(GLOB app_sources src/*.c)
 target_sources(app PRIVATE src/tmo_shell.c)
 target_sources(app PRIVATE src/tmo_buzzer.c)
 target_sources(app PRIVATE src/dfu_rs9116w.c)
@@ -92,14 +91,14 @@ if(DEFINED ENV{ZEPHYR_BASE_TAG})
 	add_compile_definitions(VERSION_ZEPHYR_BASE_TAG="$ENV{ZEPHYR_BASE_TAG}")
 else()
 	execute_process(
-		COMMAND bash ${CMAKE_SOURCE_DIR}/get_zephyr_last_rebase_tag.sh
+		COMMAND git log --grep "Merge branch 'main' into tmo-main" --max-count 1 --pretty=%H
 		WORKING_DIRECTORY ${ZEPHYR_BASE}
 		OUTPUT_VARIABLE ZEPHYR_BASE_TAG
 		OUTPUT_STRIP_TRAILING_WHITESPACE
 	)
 	if ("${ZEPHYR_BASE_TAG}" STREQUAL "")
 		execute_process(
-			COMMAND bash ${CMAKE_SOURCE_DIR}/get_zephyr_init_commit_tag.sh
+			COMMAND git log --grep "^Initial commit$" --max-count 1 --pretty=%H
 			WORKING_DIRECTORY ${ZEPHYR_BASE}
 			OUTPUT_VARIABLE ZEPHYR_BASE_TAG
 			OUTPUT_STRIP_TRAILING_WHITESPACE

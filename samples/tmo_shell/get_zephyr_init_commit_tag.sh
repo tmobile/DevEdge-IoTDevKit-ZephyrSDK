@@ -1,2 +1,2 @@
 #!/bin/bash
-git log | grep -A2 -m1 "Initial commit" | grep commit | awk NR==2'{print $2}'
+git log --grep "^Initial commit$" --max-count 1 --pretty="format:%H"
