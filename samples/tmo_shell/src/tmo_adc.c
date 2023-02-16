@@ -189,9 +189,7 @@ int read_hwid(void)
 	// Calculate input voltage in mV
 	millivolts_f = (sample * 2500.0) / 4096.0;
 
-	// On the 2nd generation dev edge, voltage on PA2 is
-	// one third the actual battery voltage
-	millivolts = (uint32_t) (3.0 * millivolts_f + 0.5);
+	millivolts = (uint32_t) millivolts_f;
 
 	return (millivolts);
 #else
