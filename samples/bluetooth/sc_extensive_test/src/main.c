@@ -150,6 +150,10 @@ static struct bt_conn_auth_cb auth_cb_display = {
 	.passkey_entry = NULL,
 	.cancel = auth_cancel,
 	.passkey_confirm = NULL,
+	
+};
+
+static struct bt_conn_auth_info_cb auth_info_cb = {
 	.pairing_complete = pairing_complete,
 	.pairing_failed = pairing_failed,
 };
@@ -168,6 +172,7 @@ void main(void)
 
 
 	bt_conn_auth_cb_register(&auth_cb_display);
+	bt_conn_auth_info_cb_register(&auth_info_cb);
 	bt_conn_cb_register(&conn_callbacks);
 
 	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
