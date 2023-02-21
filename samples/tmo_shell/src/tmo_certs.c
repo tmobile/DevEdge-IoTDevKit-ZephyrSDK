@@ -329,7 +329,7 @@ int cmd_tmo_cert_dld(const struct shell *shell, size_t argc, char **argv)
 
 	int devid = strtol(argv[1], NULL, 10);
 	if (argc < 3) {
-		ret = tmo_cert_dld(devid, "https://ccadb-public.secure.force.com/mozilla/IncludedRootsPEMTxt?TrustBitsInclude=Websites");
+		ret = tmo_cert_dld(devid, "https://ccadb.my.salesforce-sites.com/mozilla/IncludedRootsPEMTxt?TrustBitsInclude=Websites");
 	} else {
 		ret = tmo_cert_dld(devid, argv[2]);
 	}
