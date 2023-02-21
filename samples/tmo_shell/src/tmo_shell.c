@@ -1006,9 +1006,9 @@ int sock_rcv(const struct shell *shell, size_t argc, char **argv)
 		shell_print(shell, "%s", (char*)mxfer_buf);
 	}
 	if (stat == -1) {
-		shell_error(shell, "Recieve failed, errno = %d", errno);
+		shell_error(shell, "Receive failed, errno = %d", errno);
 	} else if (stat == 0) {
-		shell_error(shell, "Recieve failed, socket closed!");
+		shell_error(shell, "Receive failed, socket closed!");
 	}
 	return stat;
 }
@@ -1059,7 +1059,7 @@ int sock_rcvfrom(const struct shell *shell, size_t argc, char **argv)
 		shell_print(shell, "%s", (char*)mxfer_buf);
 	}
 	if (stat == -1) {
-		shell_error(shell, "Recieve failed, errno = %d", errno);
+		shell_error(shell, "Receive failed, errno = %d", errno);
 	}
 	return stat;
 }
