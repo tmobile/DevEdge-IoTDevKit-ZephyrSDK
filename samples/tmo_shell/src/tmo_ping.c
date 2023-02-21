@@ -83,6 +83,10 @@ int cmd_ping(const struct shell *shell, size_t argc, char **argv)
     struct net_if* iface = net_if_get_by_index(if_idx);
     struct sockaddr dst;
     char *host = argv[argc - 1];
+    if (ping_cnt <= 0) {
+        shell_error(shell, "Invalid ping count %d", ping_cnt);
+        print_usage(shell);
+    }
     if (!net_ipaddr_parse(host, strlen(host), &dst)) 
     {
         tmo_offload_init(if_idx);
