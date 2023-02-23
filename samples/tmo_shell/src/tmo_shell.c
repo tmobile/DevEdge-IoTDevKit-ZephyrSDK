@@ -2148,14 +2148,9 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	while (percent > set_point) {
-		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-		if (battery_attached !=  0) {
-			millivolts = read_battery_voltage();
-			millivolts_to_percent(millivolts, &percent);
-		} else {
-			shell_error(shell, "Battery not attached, aborting...");
-			return -ENOEXEC;
-		}
+		millivolts = read_battery_voltage();
+		millivolts_to_percent(millivolts, &percent);
+
 		if ((abs(old_percent - percent) > 5) && ((percent % 5) == 0)) {
 			shell_print(shell, "Battery level is now (%d%%)...", percent);
 			old_percent = percent;
