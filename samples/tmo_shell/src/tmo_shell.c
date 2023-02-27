@@ -2057,7 +2057,9 @@ int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Charger VBUS status command failed");
 	}
 	else {
-		if (!vbus) {
+		if (!attached) {
+			shell_print(shell, "\tNo battery attached");
+		} else if (!vbus) {
 			shell_print(shell, "\tCharger is missing VBUS and is NOT charging");
 		}
 		else {
