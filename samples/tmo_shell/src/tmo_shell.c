@@ -2573,11 +2573,11 @@ void tmo_shell_main (void)
 
 	cxd5605_init();
 
-    battery_dev = DEVICE_DT_GET_ANY(silabs_battery_adc);
-	if (!battery_dev) {
-		printf("Battery driver error\n");
-		exit(-1);
-	}
+   // battery_dev = DEVICE_DT_GET_ANY(silabs_battery_adc);
+	//if (!battery_dev) {
+//		printf("Battery driver error\n");
+	////	exit(-1);
+//	}
 
 	shell = shell_backend_uart_get_ptr();
 #ifdef CONFIG_WIFI
