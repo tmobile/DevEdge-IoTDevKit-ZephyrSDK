@@ -577,7 +577,7 @@ int dfu_modem_get_version(char *dfu_murata_version_str) {
 	} else if (dfu_murata_version_str[0] == 0) {
 		printf("VERSION failed with empty response\n");
 	} else {
-		printf("The current Murata 1SC FW version is %s\n", dfu_murata_version_str);
+		printf("The current Murata 1SC FW version is: %s\n", dfu_murata_version_str);
 	}
 
 	return res;

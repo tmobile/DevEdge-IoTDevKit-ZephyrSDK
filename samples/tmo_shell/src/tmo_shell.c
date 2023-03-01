@@ -1917,9 +1917,6 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 				if (status != 0) {
 					shell_error(shell, "reading the RS9116W FW version failed\n");
 				}
-				else {
-					shell_print(shell, "The current RS9116W FW version is: %s\n", dfu_rs9116w_fw_version);
-				}
 			}
 			break;
 
