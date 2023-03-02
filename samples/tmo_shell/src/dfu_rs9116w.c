@@ -296,9 +296,9 @@ int dfu_wifi_get_version(char *wifi_fw_version)
 	if (status != RSI_SUCCESS) {
 		printf("reading the RS9116W FW version failed\n");
 		return (-1);
+	} else {
+		printf("The current RS9116W FW version is: %s\n", wifi_fw_version);
 	}
-
-	printf("RS9116W FW version is: %s\n", wifi_fw_version);
 	return (0);
 }
 
