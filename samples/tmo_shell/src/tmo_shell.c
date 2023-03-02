@@ -1560,6 +1560,7 @@ int cmd_sntp(const struct shell *shell, size_t argc, char **argv)
 }
 int cmd_gnss(const struct shell *shell, size_t argc, char **argv)
 {
+	shell_print(shell,"Fix valid: %s", gnss_values.fix_valid ? "YES" : "NO");
 	shell_print(shell,"Latitude: %.7lf",gnss_values.lat);
 	shell_print(shell,"Longitude: %.7lf",gnss_values.lon);
 	shell_print(shell,"Sats: %d",gnss_values.sats);
