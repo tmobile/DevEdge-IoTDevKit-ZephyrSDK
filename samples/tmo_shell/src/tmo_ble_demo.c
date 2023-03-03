@@ -28,7 +28,7 @@
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/drivers/bluetooth/rs9116w.h>
-#include <zephyr/drivers/adc_battery.h>
+#include <zephyr/drivers/fuel_gauge/sbs_battery/sbs_battery.h>
 
 #include "tmo_buzzer.h"
 #include "tmo_web_demo.h"
@@ -190,16 +190,24 @@ static ssize_t battery_voltage_get(struct bt_conn *conn,
 				const struct bt_gatt_attr *attr, void *buf,
 				uint16_t len, uint16_t offset)
 {
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data  *data = battery_dev->data;
+	int32_t buffer;
 
-	adc_read(battery_dev, NULL);
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
+
+	seq.channels = 0;
+	adc_read(battery_dev, &seq);
     /* flush the fault status out by reading again */
     if (data->fault) {
-        adc_read(battery_dev, NULL);
+        adc_read(battery_dev, &seq);
     }
     /* there can be 2 of these to flush */
     if (data->fault) {
-        adc_read(battery_dev, NULL);
+        adc_read(battery_dev, &seq);
     }
 
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, (uint8_t*) &data->percent, 1);
@@ -209,10 +217,18 @@ static ssize_t battery_power_source_get(struct bt_conn *conn,
                                 const struct bt_gatt_attr *attr, void *buf,
                                 uint16_t len, uint16_t offset)
 {
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
 	uint8_t power_source;
+	int32_t buffer;
 
-	adc_read(battery_dev, NULL);
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
+
+	seq.channels = 0;
+	adc_read(battery_dev, &seq);
 	if (data->vbus || !data->battery_attached) {
 		power_source = ON_CHARGER_POWER;
 	} else {
@@ -771,9 +787,16 @@ void ble_notif_thread(void *a, void *b, void *c)
 	ARG_UNUSED(a);
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
 	uint8_t button_last_state = 0;
 	uint8_t battery_last_percent = 0;
+	int32_t buffer;
+
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
 
 	while (1) {
 		k_sem_take(&update_sem, K_MSEC(200));
@@ -816,7 +839,8 @@ void ble_notif_thread(void *a, void *b, void *c)
 			bt_gatt_notify(NULL, &ln_svc.attrs[2], ln_las_buf, sizeof(ln_las_buf));
 		}
 
-		adc_read(battery_dev, NULL);
+		seq.channels = 0;
+    	adc_read(battery_dev, &seq);
 		if (data->battery_attached) {
 			if (battery_last_percent != data->percent) {
 				bt_gatt_notify(NULL, &bas.attrs[1], &data->percent, sizeof(data->percent));

@@ -12,7 +12,7 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/socket.h>
-#include <zephyr/drivers/adc_battery.h>
+#include <zephyr/drivers/fuel_gauge/sbs_battery/sbs_battery.h>
 #if CONFIG_MODEM
 #include "modem_sms.h"
 #include <zephyr/drivers/modem/murata-1sc.h>
@@ -169,7 +169,14 @@ int  create_json()
 	struct sensor_value sensor_value_arr[3];
 	int buffer_size = MAX_PAYLOAD_BUFFER_SIZE;
 	memset(json_payload, 0, MAX_PAYLOAD_BUFFER_SIZE);
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
+	int32_t buffer;
+
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
 
 	// test blank payload
 	// json_payload[0] = '\0';
@@ -202,7 +209,8 @@ int  create_json()
 		uint32_t millivolts = 0;
 		enum battery_state e_bat_state = battery_state_not_attached;
 		if (battery_attached !=0) {
-			adc_read(battery_dev, NULL);
+			seq.channels = 0;
+			adc_read(battery_dev, &seq);
 			millivolts = data->mVolts;
 			if (data->vbus && data->charging) {
 				e_bat_state = battery_state_charging;
@@ -313,12 +321,21 @@ static void tmo_web_demo_notif_thread(void *a, void *b, void *c)
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
 	k_sleep(K_SECONDS(TRANSMIT_INTERVAL_SECS_WEB));
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
+	int32_t buffer;
+
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
+
 
 	while (1) {
 		k_sleep(K_SECONDS(web_demo_settings.transmit_interval));
 		if (get_transmit_flag()) {
-			adc_read(battery_dev, NULL);
+			seq.channels = 0;
+			adc_read(battery_dev, &seq);
 			battery_attached = data->battery_attached;
 			fault = data->fault;
 			create_json();

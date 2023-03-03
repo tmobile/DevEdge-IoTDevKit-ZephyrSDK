@@ -25,7 +25,7 @@ LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 #include <zephyr/drivers/led.h>
 #include <zephyr/sys/reboot.h>
 #include <rsi_wlan_apis.h>
-#include <zephyr/drivers/adc_battery.h>
+#include <zephyr/drivers/fuel_gauge/sbs_battery/sbs_battery.h>
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 #include "tls_internal.h"
@@ -1939,11 +1939,19 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 {
 	int err;
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
+	int32_t buffer;
+
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
 
 	k_msleep(500);
 
-	err = adc_read(battery_dev, NULL);
+	seq.channels = 0;
+    err = adc_read(battery_dev, &seq);
 	if (err < 0) {
 		shell_print(shell,"Could not read (%d)\n", err);
 	}
@@ -1971,7 +1979,21 @@ int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_battery_hwid(const struct shell *shell, size_t argc, char **argv)
 {
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
+	int32_t buffer;
+	int err;
+	
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
+
+	seq.channels = 1;
+    err = adc_read(battery_dev, &seq);
+	if (err < 0) {
+		shell_print(shell,"Could not read (%d)\n", err);
+	}
 	shell_print(shell,"HWID = %d\n", data->hwid);
 	return 0;
 }
@@ -1979,11 +2001,19 @@ int cmd_battery_hwid(const struct shell *shell, size_t argc, char **argv)
 int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 {
 	int err;
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
+	int32_t buffer;
+
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
 
 	k_msleep(500);
 
-	err = adc_read(battery_dev, NULL);
+	seq.channels = 0;
+	err = adc_read(battery_dev, &seq);
 	if (err < 0) {
 		shell_print(shell,"Could not read (%d)\n", err);
 	}
@@ -1998,15 +2028,20 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	uint8_t old_percent = 0;
 	uint32_t millivolts = 0;
 	int err;
+	struct adc_gecko_data *data = battery_dev->data;
+	int32_t buffer;
 
-	struct batmon_data *data = battery_dev->data;
-
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
 	k_msleep(500);
 
-	err = adc_read(battery_dev, NULL);
+	seq.channels = 0;
+	err = adc_read(battery_dev, &seq);
 	if (err < 0) {
-		shell_error(shell, "Battery not attached, aborting...");
-		return -ENOEXEC;
+		shell_print(shell,"Could not read (%d)\n", err);
 	}
 
 	millivolts = data->mVolts;
@@ -2033,10 +2068,9 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	while ( data->percent > 60) {
-		err = adc_read(battery_dev, NULL);
+		err = adc_read(battery_dev, &seq);
 		if (err < 0) {
-			shell_error(shell, "Battery not attached, aborting...");
-			return -ENOEXEC;
+			shell_print(shell,"Could not read (%d)\n", err);
 		}
 
 		if ((abs(old_percent - data->percent) > 5) && (( data->percent % 5) == 0)) {
@@ -2063,11 +2097,19 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 {
 	int err;
-	struct batmon_data *data = battery_dev->data;
+	struct adc_gecko_data *data = battery_dev->data;
+	int32_t buffer;
+
+	struct adc_sequence seq = {
+		.buffer = &buffer,
+		.buffer_size = sizeof(buffer),
+		.resolution = 12
+	};
 
 	k_msleep(500);
 
-	err = adc_read(battery_dev, NULL);
+	seq.channels = 0;
+	err = adc_read(battery_dev, &seq);
 	if (err < 0) {
 		shell_print(shell,"Could not read (%d)\n", err);
 	}
@@ -2551,6 +2593,15 @@ void tmo_shell_main (void)
 {
 	net_if_foreach(count_ifaces, NULL);
 	ext_flash_dev = device_get_binding(FLASH_DEVICE);
+	battery_dev = DEVICE_DT_GET(DT_INST(0, sbs_sbs_battery));
+	int err;
+
+	static const struct adc_channel_cfg ch_cfg = {
+		.reference        = ADC_REF_INTERNAL,
+		.acquisition_time = ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 32),
+		.channel_id       = 2,
+		.differential = false
+	};
 
 	if (!ext_flash_dev) {
 		printf("SPI NOR external flash driver %s was not found!\n", FLASH_DEVICE);
@@ -2573,11 +2624,16 @@ void tmo_shell_main (void)
 
 	cxd5605_init();
 
-   // battery_dev = DEVICE_DT_GET_ANY(silabs_battery_adc);
-	//if (!battery_dev) {
-//		printf("Battery driver error\n");
-	////	exit(-1);
-//	}
+	if (!device_is_ready(battery_dev)) {
+		printk(" battery device not ready");
+		return;
+	}
+
+	err = adc_channel_setup(battery_dev, &ch_cfg);
+	if (err) {
+		printk("failed to setup ADC channel (err %d)", err);
+		return;
+	}
 
 	shell = shell_backend_uart_get_ptr();
 #ifdef CONFIG_WIFI
