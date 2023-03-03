@@ -82,11 +82,6 @@ static void date_print(const struct shell *shell, struct tm *tm)
 
 static int time_date_set(const struct shell *shell, uint32_t epoch_sec)
 {
-#if defined(CONFIG_TIME_GECKO_RTCC)
-	uint32_t time = 0;    ///< RTCC_TIME - Time of Day Register
-	uint32_t date = 0;    ///< RTCC_DATE - Date Register
-	uint32_t year = 0;
-#endif
 	struct tm tm;
 	struct timespec tp;
 	tp.tv_sec = (uint32_t)epoch_sec;
@@ -94,45 +89,15 @@ static int time_date_set(const struct shell *shell, uint32_t epoch_sec)
 	gmtime_r(&tp.tv_sec, &tm);
 	date_print(shell,&tm);
 
-#if defined(CONFIG_TIME_GECKO_RTCC)
-	time |= bin2bcd(tm.tm_sec) << _RTCC_TIME_SECU_SHIFT;
-	time |= bin2bcd(tm.tm_min) << _RTCC_TIME_MINU_SHIFT;
-	time |= bin2bcd(tm.tm_hour) << _RTCC_TIME_HOURU_SHIFT;
-	date |= tm.tm_wday << _RTCC_DATE_DAYOW_SHIFT;
-	date |= bin2bcd(tm.tm_mday) << _RTCC_DATE_DAYOMU_SHIFT;
-	date |= bin2bcd(tm.tm_mon) << _RTCC_DATE_MONTHU_SHIFT;
-
-	year = tm.tm_year;
-	if (year >= 100) {
-		RTCC->RET[0].REG = year / 100;
-		year %= 100;
-	}
-
-	date |= bin2bcd(year) << _RTCC_DATE_YEARU_SHIFT;
-
-	RTCC_TimeSet(time);
-	RTCC_DateSet(date);
-
-	uint32_t rtc_val =RTCC_TimeGet();
-
-	if (rtc_val != time) {
-		shell_error(shell, "Could not set time and date");
-		return -EINVAL;
-	} 
-
-	rtc_val =RTCC_DateGet();
-	if (rtc_val != date) {
-		shell_error(shell, "Could not set time and date");
-		return -EINVAL;
-	}
+#if defined(CONFIG_COUNTER_GECKO_RTCC)
+	RTCC_CounterSet(tp.tv_sec);
+#endif
 
 	if( clock_settime( CLOCK_REALTIME, &tp) == -1 ) {
 		shell_error( shell, "system clock set failed" );
 		return -EINVAL;
 	}
 	shell_print(shell, "successfully updated RTC");
-
-#endif
 
 	return 0;
 }
