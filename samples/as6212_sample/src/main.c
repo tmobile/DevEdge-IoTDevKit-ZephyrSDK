@@ -272,6 +272,5 @@ void main(void)
 		 */
 
 		k_sleep(K_SECONDS(SLEEP_DURATION));
-		puts("\nError: Wake from EM2 sleep: We shouldn't ever get here!");
 	}
 }
