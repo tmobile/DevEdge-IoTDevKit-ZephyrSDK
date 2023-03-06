@@ -277,7 +277,7 @@ int tmo_cert_dld(int devid, char *url)
 		goto exit;
 	}
 
-	http_total_received = tmo_http_download(devid, url, "/tmo/certs.tmp");
+	http_total_received = tmo_http_download(devid, url, "/tmo/certs.tmp", NULL);
 	
 	if (http_total_received <= 0) {
 		goto exit;

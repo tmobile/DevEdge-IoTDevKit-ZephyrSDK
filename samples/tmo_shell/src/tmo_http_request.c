@@ -322,7 +322,7 @@ int create_http_socket(bool tls, char* host, struct addrinfo *res, struct net_if
 #endif
 
 
-int tmo_http_download(int devid, char url[], char filename[])
+int tmo_http_download(int devid, char url[], char filename[], char *auth_key)
 {
 	static struct addrinfo hints;
 	struct addrinfo *res = NULL;
@@ -333,9 +333,17 @@ int tmo_http_download(int devid, char url[], char filename[])
 	int tls = 0;
 	int ret = -1;
 	struct fs_file_t file = {0};
+	char *auth_header = NULL;
+	char auth_header_buf[64];
+
+	if (auth_key){
+		snprintf(auth_header_buf, sizeof(auth_header_buf) - 1, "Authorization: Basic %s", auth_key);
+		auth_header = auth_header_buf;
+	}
+	
 
 	const char *headers[] = {
-		NULL
+		auth_header, NULL
 	};
 
 	memset(&req, 0, sizeof(req));
@@ -475,7 +483,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 			k_msleep(2000);
 			zsock_connect(sock, res->ai_addr, res->ai_addrlen);
 			char *headers[] = {
-				NULL, NULL
+				NULL, auth_header, NULL
 			};
 			char range_header[32] = {0};
 			snprintk(range_header, sizeof(range_header), "Range: bytes=%d-\r\n", http_total_received);
@@ -503,7 +511,7 @@ int tmo_http_download(int devid, char url[], char filename[])
 			k_msleep(2000);
 			zsock_connect(sock, res->ai_addr, res->ai_addrlen);
 			char *headers[] = {
-				NULL, NULL
+				NULL, auth_header, NULL
 			};
 			char range_header[32] = {0};
 			snprintk(range_header, sizeof(range_header), "Range: bytes=%d-\r\n", http_total_received);

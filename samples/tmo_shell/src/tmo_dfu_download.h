@@ -38,6 +38,7 @@ enum dfu_tgts {
 
 int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *filename, char *version);
 int set_dfu_base_url(char *base_url);
+int set_dfu_auth_key(char *auth_key);
 const char *get_dfu_base_url(void);
 int set_dfu_iface_type(int iface);
 int get_dfu_iface_type(void);

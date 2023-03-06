@@ -15,6 +15,7 @@ LOG_MODULE_REGISTER(tmo_dfu_download, LOG_LEVEL_DBG);
 #include <zephyr/net/http/client.h>
 #include <zephyr/net/wifi_mgmt.h>
 #include <mbedtls/sha1.h>
+#include <zephyr/sys/base64.h>
 
 #include "ca_certificate.h"
 #include "tmo_dfu_download.h"
@@ -38,6 +39,8 @@ struct fs_dirent* my_finfo;
 #define MAX_BASE_URL_LEN 256
 static char base_url_s[MAX_BASE_URL_LEN];
 static char user_base_url_s[MAX_BASE_URL_LEN] = "https://devkit.devedge.t-mobile.com/bin/";
+
+static char dfu_auth_key[42];
 
 static int iface_s = WIFI_ID; // Default iface is wifi
 
@@ -75,8 +78,12 @@ int dfu_download(const struct dfu_file_t *dfu_file, enum dfu_tgts dfu_tgt)
 				digicert_ca, sizeof(digicert_ca));
 	}
 #endif
-
-	ret = tmo_http_download(iface_s, url, dfu_file->lfile);
+	if (strlen(dfu_auth_key)) {
+		ret = tmo_http_download(iface_s, url, dfu_file->lfile, dfu_auth_key);
+	} else {
+		ret = tmo_http_download(iface_s, url, dfu_file->lfile, NULL);
+	}
+	
 	if (ret < 0) {
 		return ret;
 	}
@@ -236,6 +243,23 @@ int set_dfu_base_url(char *base_url)
 {
 	memset(user_base_url_s, 0, sizeof(user_base_url_s));
 	strncpy(user_base_url_s, base_url, sizeof(user_base_url_s) - 1);
+
+	return 0;
+}
+
+int set_dfu_auth_key(char *auth_key)
+{
+	int ret;
+	memset(dfu_auth_key, 0, sizeof(dfu_auth_key));
+
+	ret = base64_encode(dfu_auth_key, sizeof(dfu_auth_key), NULL,
+		auth_key, strlen(auth_key));
+
+	if (ret) {
+		printf("Auth key set failed");
+		memset(dfu_auth_key, 0, sizeof(dfu_auth_key));
+		return ret;
+	}
 
 	return 0;
 }
