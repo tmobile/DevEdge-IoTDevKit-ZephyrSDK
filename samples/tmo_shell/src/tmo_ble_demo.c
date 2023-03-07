@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 #include <zephyr/kernel.h>
 #include <zephyr/posix/fcntl.h>
 #include <zephyr/types.h>
@@ -133,7 +134,7 @@ static ssize_t press_read(struct bt_conn *conn,
 		const struct bt_gatt_attr *attr, void *buf,
 		uint16_t len, uint16_t offset)
 {//pressure = .1 Pa uint32
-	uint32_t rand_press = (10000 + (uint8_t)sys_rand32_get() - 127) * 10;
+	uint32_t rand_press = (100000 + (uint8_t)sys_rand32_get() - 127) * 10;
 	uint32_t real_press;
 	uint8_t *value = (uint8_t*)&rand_press;
 
@@ -735,6 +736,19 @@ static const struct bt_data ibeacon_ad[] = {
 			0xBD) /* Calibrated RSSI @ 1m */
 };
 
+#define IBEACON_PAYLOAD_SIZE 25
+
+static uint8_t ibeacon_custom_data[25];
+
+static struct bt_data ibeacon_custom[2] = {
+	BT_DATA_BYTES(BT_DATA_FLAGS, BT_LE_AD_NO_BREDR),
+	{
+		.type = BT_DATA_MANUFACTURER_DATA,
+		.data_len = 25,
+		.data = ibeacon_custom_data
+	}
+};
+
 #if CONFIG_WIFI
 
 static struct net_mgmt_event_callback ble_demo_mgmt_cb;
@@ -1001,11 +1015,132 @@ int cmd_ble_adv_ebeacon(const struct shell *shell, size_t argc, char **argv)
 	return 0;
 }
 
+static char hex_byte_to_data(const char * hex_byte)
+{
+	char out;
+
+	if (isalpha(hex_byte[0])) {
+		out = (10 + (toupper(hex_byte[0]) & ~0x20) - 'A') << 4;
+	} else {
+		out = (hex_byte[0] - '0') << 4;
+	}
+	if (isalpha(hex_byte[1])) {
+		out += (10 + (toupper(hex_byte[1]) & ~0x20) - 'A');
+	} else {
+		out += (hex_byte[1] - '0');
+	}
+	return out;
+}
+
+static size_t hex_str_to_data(const char *input_buf, uint8_t *output_buf, size_t output_len)
+{
+	size_t str_len = strlen(input_buf);
+	size_t i = 0;
+
+	for (i = 0; (i < output_len) && (i * 2 < str_len); i++) {
+		output_buf[i] = hex_byte_to_data(&input_buf[i * 2]);
+	}
+	return i;
+}
+
 int cmd_ble_adv_ibeacon(const struct shell *shell, size_t argc, char **argv)
 {
 	int err;
 	bt_le_adv_stop();
-	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ibeacon_ad, ARRAY_SIZE(ibeacon_ad), NULL, 0);
+	if (argc < 2) {
+		err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ibeacon_ad, 
+			  ARRAY_SIZE(ibeacon_ad), NULL, 0);
+		goto end;
+	}
+
+	memcpy(ibeacon_custom_data, ibeacon_ad[1].data, sizeof(ibeacon_custom_data));
+
+	if (argc > 5) {
+		//Usage
+		shell_help(shell);
+		return -EINVAL;
+	}
+
+	uint8_t *uuid = &ibeacon_custom_data[4];
+	uint8_t *major = &ibeacon_custom_data[20];
+	uint8_t *minor = &ibeacon_custom_data[22];
+	int8_t *rssi_at_1m = (int8_t *)&ibeacon_custom_data[24];
+
+	if (argc >= 2) {
+		errno = 0;
+		char *group = argv[1];
+		for (int i = 0; i < 5; i++) {
+			if (group == NULL) {
+				shell_help(shell);
+				return -EINVAL;
+			}
+			switch (i) {
+			case 0:
+				if (hex_str_to_data(group, uuid, 4) != 4){
+					shell_help(shell);
+					return -EINVAL;
+				}
+				uuid += 4;
+				break;
+			case 1:
+			case 2:
+			case 3:
+				if (hex_str_to_data(group, uuid, 2) != 2){
+					shell_help(shell);
+					return -EINVAL;
+				}
+				uuid += 2;
+				break;
+			case 4:
+				if (hex_str_to_data(group, uuid, 6) != 6){
+					shell_help(shell);
+					return -EINVAL;
+				}
+				break;
+			}
+			group = strchr(group, '-');
+			group = group ? group + 1 : NULL;
+		}
+	}
+
+	if (argc >= 3) {
+		errno = 0;
+		uint16_t major_val = sys_cpu_to_be16(strtol(argv[2], NULL, 10));
+		if (errno) {
+			shell_help(shell);
+			return -EINVAL;
+		}
+		memcpy(major, &major_val, 2);
+	} else {
+		memset(major, 0, 2);
+	}
+
+	if (argc >= 4) {
+		errno = 0;
+		uint16_t minor_val = sys_cpu_to_be16(strtol(argv[3], NULL, 10));
+		if (errno) {
+			shell_help(shell);
+			return -EINVAL;
+		}
+		memcpy(minor, &minor_val, 2);
+	} else {
+		memset(minor, 0, 2);
+	}
+
+	if (argc == 5) {
+		errno = 0;
+		*rssi_at_1m = strtol(argv[4], NULL, 10);
+		if (errno) {
+			shell_help(shell);
+			return -EINVAL;
+		}
+	} else {
+		*rssi_at_1m = -60;
+	}
+
+	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ibeacon_custom, 
+			  ARRAY_SIZE(ibeacon_custom), NULL, 0);
+end:
 	if (err) {
 		shell_error(shell, "Advertising failed to start (err %d)\n", err);
 		return -EIO;

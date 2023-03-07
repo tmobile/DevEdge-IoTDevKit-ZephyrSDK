@@ -1714,7 +1714,11 @@ SHELL_STATIC_SUBCMD_SET_CREATE(ble_smp_9116_sub,
 SHELL_STATIC_SUBCMD_SET_CREATE(ble_adv_sub,
 		SHELL_CMD(conn, NULL, "Advertise as connectable", cmd_ble_adv_conn),
 		SHELL_CMD(eddystone, NULL, "Advertise as eddystone beacon", cmd_ble_adv_ebeacon),
-		SHELL_CMD(ibeacon, NULL, "Advertise as ibeacon", cmd_ble_adv_ibeacon),
+		SHELL_CMD(ibeacon, NULL, "Advertise as ibeacon\n"
+			"\tUsage:\n"
+			"\t tmo ble adv ibeacon <uuid (optional)> <major (optional)>\n"
+			"\t  <minor (optional)> <rssi at 1m (optional)>",
+			cmd_ble_adv_ibeacon),
 		SHELL_SUBCMD_SET_END
 		);
 #endif
