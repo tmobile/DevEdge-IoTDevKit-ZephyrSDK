@@ -29,10 +29,6 @@ config SEGGER_RTT_BUFFER_SIZE_DOWN
     int
     default 8192 if TMO_SHELL_BUILD_EK
 
-config TMO_FUEL_GAUGE_STATE_CHANGE_PRINT
-    bool "Print messages on fuel guage state change"
-    default n
-
 config TMO_TEST_MFG_CHECK_GOLDEN
     bool "Check modem type is golden"
     default y

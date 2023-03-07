@@ -41,7 +41,6 @@ target_sources_ifdef(CONFIG_PING app PRIVATE src/tmo_ping.c)
 target_sources_ifdef(CONFIG_TMO_HTTP_MOCK_SOCKET app PRIVATE src/tmo_http_mock_socket.c)
 target_sources_ifdef(CONFIG_PM_DEVICE app PRIVATE src/tmo_pm.c)
 target_sources_ifdef(CONFIG_PM app PRIVATE src/tmo_pm_sys.c)
-target_sources_ifdef(CONFIG_FUEL_GAUGE app PRIVATE src/tmo_fuel_gauge.c)
 
 set(gen_dir ${ZEPHYR_BINARY_DIR}/include/generated/)
 
