@@ -11,20 +11,20 @@
 #define MAXFIELDS 32
 /* set timeout to be one second (milliseconds/10 millisecond delay) */
 #define MAXTIME 100
-//#define DEBUG
 
 struct tmo_gnss_struct {
-        double time;
-        double lat;
-        double lon;
-        double alt;
-        double hdop;
+	double time;
+	double lat;
+	double lon;
+	double alt;
+	double hdop;
 	char lonchar;
 	char latchar;
 	uint32_t sats;
 	uint32_t timeToFix;
 	uint32_t pps1Count;
 	char version[32];
+	bool fix_valid;
 };
 
 void setup_gnss(void);
@@ -52,9 +52,8 @@ uint8_t rd_data[82];
 bool las_notify = false;
 uint8_t ln_las_buf[13];
 uint8_t ln_quality_buf[6];
-// See GATT Specification Supplement V6 - page 161
+/* See GATT Specification Supplement V6 - page 161 */
 uint32_t ln_ln_feature = BIT(2) | BIT (3) | BIT(11) | BIT(12) | BIT(15);
-//char message[74];
 bool restart_setup = false;
 #else
 /* variables for other files as necessary */

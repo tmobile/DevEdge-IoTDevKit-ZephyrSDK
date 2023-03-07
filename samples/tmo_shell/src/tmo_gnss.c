@@ -37,19 +37,7 @@ void callback_1pps() {
 	gnss_values.pps1Count++;
 }
 
-void coldStartHandler(struct k_work *work)
-{
-	fix_time_in_seconds++;
-}
-
-K_WORK_DEFINE(coldStart, coldStartHandler);
-
-void coldStartTimer_handler(struct k_timer *dummy)
-{
-	k_work_submit(&coldStart);
-}
-
-K_TIMER_DEFINE(coldStartTimer, coldStartTimer_handler, NULL);
+uint32_t cold_start_time;
 
 void ln_buf_gen(void)
 {
@@ -60,13 +48,14 @@ void ln_buf_gen(void)
 	uint8_t beacons = 0;
 	uint16_t ttff = 0;
 	uint16_t quality_flags = 0;
-	bool fix_ok = (gnss_values.lat != 0.0 && gnss_values.lon != 0.0);
+	bool fix_ok = gnss_values.fix_valid;
 	latitude = sys_cpu_to_le32((int)(gnss_values.lat * 10000000.0));
 	longitude = sys_cpu_to_le32((int)(gnss_values.lon * 10000000.0));
 	elevation = sys_cpu_to_le32((int32_t)(gnss_values.alt * 100));
-	/* put flags in buffer */
-	ln_las_flags &= ~(BIT(7) | BIT(8));
+	/* Clear flags */
+	ln_las_flags = 0;
 	if (fix_ok) {
+		ln_las_flags = BIT(2) | BIT(3) | BIT(13);
 		ln_las_flags |= 0b01 << 7;
 	}
 	memcpy(ln_las_buf, &ln_las_flags, 2);
@@ -193,7 +182,7 @@ void gnss_thread(void *a, void *b, void *c)
 			rc = sensor_attr_set(cxd5605,SENSOR_CHAN_ALL,SENSOR_ATTR_CXD5605_COLD_START, &sens_values);
 			startGetFixTimer = true;
 			fix_time_in_seconds = 0;
-			k_timer_start(&coldStartTimer, K_SECONDS(1), K_SECONDS(1));
+			cold_start_time = k_uptime_get_32();
 			k_msleep(250);
 			rc = sensor_attr_set(cxd5605,SENSOR_CHAN_ALL,SENSOR_ATTR_CXD5605_WAKE_UP, &sens_values);
 			k_msleep(250);
@@ -237,6 +226,11 @@ void gnss_thread(void *a, void *b, void *c)
 					&temp_flags);
 			strcpy(gnss_values.version,(char *)temp_flags.val1);
 			sensor_attr_get(cxd5605,
+						GNSS_CHANNEL_POSITION,
+						GNSS_ATTRIBUTE_FIXTYPE,
+						&temp_flags);
+			gnss_values.fix_valid = (temp_flags.val1 > 0);
+			sensor_attr_get(cxd5605,
 					GNSS_CHANNEL_POSITION,
 					GNSS_ATTRIBUTE_ALTITUDE_MSL,
 					&temp_flags);
@@ -257,10 +251,11 @@ void gnss_thread(void *a, void *b, void *c)
 				if (temp_flags.val1 > 0)
 				{
 					gotFix = true;
-					gnss_values.timeToFix = fix_time_in_seconds;
-					// Based on GATT_Specification_Supplement_v6.pdf
-					// Bit 13 is unused and is set to indicate hdop present
-					// Bit 3 is set to indicate elevation present
+					gnss_values.timeToFix = (k_uptime_get_32() - cold_start_time) / 1000;
+					/* Based on GATT_Specification_Supplement_v6.pdf
+					 * Bit 13 is unused and is set to indicate hdop present
+					 * Bit 3 is set to indicate elevation present
+					 */
 					ln_las_flags |= BIT(2) | BIT(3) | BIT(13) | BIT(7);
 				}
 			}
