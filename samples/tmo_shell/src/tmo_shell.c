@@ -1516,7 +1516,7 @@ digicert_ca, sizeof(digicert_ca));
 #endif
 */
 	int devid = strtol(argv[1], NULL, 10);
-	ret = tmo_http_download(devid, argv[2], (argc == 4) ? argv[3] : NULL);
+	ret = tmo_http_download(devid, argv[2], (argc == 4) ? argv[3] : NULL, NULL);
 	if (ret < 0) {
 		shell_error(shell, "tmo_http_download returned %d", ret);
 	}
@@ -1762,6 +1762,15 @@ int cmd_dfu_base_url(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	return set_dfu_base_url(argv[1]);
+}
+
+int cmd_dfu_auth_key(const struct shell *shell, size_t argc, char **argv)
+{
+	if (argc != 2) {
+		shell_error(shell, "incorrect parameters");
+		return -EINVAL;
+	}
+	return set_dfu_auth_key(argv[1]);
 }
 
 int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
@@ -2461,6 +2470,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_test_sub,
 		);
 
 SHELL_STATIC_SUBCMD_SET_CREATE(tmo_dfu_sub,
+		SHELL_CMD(auth_key, NULL, "Set FW download auth key", cmd_dfu_auth_key),
 		SHELL_CMD(base_url, NULL, "Set FW download base URL", cmd_dfu_base_url),
 		SHELL_CMD(download, NULL, "Download FW", cmd_dfu_download),
 		SHELL_CMD(iface, NULL, "Set FW download iface", cmd_dfu_set_iface),
