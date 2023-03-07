@@ -563,11 +563,14 @@ BT_GATT_SERVICE_DEFINE(aio_svc,
 				),
 		);
 
+K_SEM_DEFINE(ble_thd_sem, 0, 1);
+
 void button_stat_change(const struct device *dev, struct gpio_callback *cb,
 		uint32_t pins)
 {
 	aio_btn_pushed = (gpio_pin_get(button0.port, button0.pin) > 0)? 1 : 0;
 	k_sem_give(&update_sem);
+	k_sem_give(&ble_thd_sem);
 }
 #if CONFIG_MODEM
 #include "modem_sms.h"
@@ -798,6 +801,9 @@ void ble_notif_thread(void *a, void *b, void *c)
 	uint8_t battery_last_percent = 0;
 
 	while (1) {
+		if (!get_active_le_conns()) {
+			k_sem_take(&ble_thd_sem, K_FOREVER);
+		}
 		k_sem_take(&update_sem, K_MSEC(200));
 		if (acc_notify) {
 			int16_t acc_value[3] = {0};
@@ -856,6 +862,25 @@ K_THREAD_DEFINE(ble_notif_tid, BLE_NOTIF_THREAD_STACK_SIZE,
 		ble_notif_thread, NULL, NULL, NULL,
 		BLE_NOTIF_THREAD_PRIORITY, 0, 0);
 
+static void ble_connected(struct bt_conn *conn, uint8_t err)
+{
+	const struct device *dev = PWMLEDS;
+	ARG_UNUSED(conn);
+	ARG_UNUSED(err);
+	k_sem_give(&ble_thd_sem);
+	
+	led_off(dev, LED_PWM_RED);
+	led_off(dev, LED_PWM_GREEN);
+	led_off(dev, LED_PWM_BLUE);
+	#ifdef LED_PWM_WHITE
+	led_off(dev, LED_PWM_WHITE);
+	#endif /* LED_PWM_WHITE */
+}
+
+static struct bt_conn_cb conn_callbacks = {
+	.connected = ble_connected,
+};
+
 static int tmo_ble_demo_init(const struct device *unused)
 {
 	ARG_UNUSED(unused);
@@ -891,7 +916,7 @@ static int tmo_ble_demo_init(const struct device *unused)
 #if CONFIG_BT_SMP
 	tmo_smp_shell_init();
 #endif
-	// bt_conn_cb_register(&conn_callbacks);
+	bt_conn_cb_register(&conn_callbacks);
 	acc_sensor = DEVICE_DT_GET(DT_NODELABEL(lis2dw12));
 	temp_sensor = DEVICE_DT_GET(DT_NODELABEL(as6212));
 #if CONFIG_LPS22HH
