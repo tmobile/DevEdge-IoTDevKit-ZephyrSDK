@@ -163,9 +163,55 @@ int misc_test()
 }
 
 #include "dfu_rs9116w.h"
+
+/* These bindings are defined both by zephyr and the RS9116W, so to eliminate 
+ * warnings, the definitions need to be removed.
+ */
+#undef AF_INET
+#undef AF_INET6
+#undef AF_UNSPEC
+#undef PF_INET
+#undef PF_INET6
+#undef TCP_NODELAY
+#undef IP_TOS
+#undef IPPROTO_IP
+#undef IPPROTO_TCP
+#undef IPPROTO_UDP
+#undef IPPROTO_RAW
+#undef SOCK_STREAM
+#undef SOCK_DGRAM
+#undef SOCK_RAW
+#undef htons
+#undef htonl
+#undef ntohs
+#undef ntohl
+#undef s6_addr
+#undef s6_addr32
 #include "dfu_murata_1sc.h"
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/drivers/sensor/cxd5605.h>
+
+/* Unfortunately, this has to be done again */
+#undef AF_INET
+#undef AF_INET6
+#undef AF_UNSPEC
+#undef PF_INET
+#undef PF_INET6
+#undef TCP_NODELAY
+#undef IP_TOS
+#undef IPPROTO_IP
+#undef IPPROTO_TCP
+#undef IPPROTO_UDP
+#undef IPPROTO_RAW
+#undef SOCK_STREAM
+#undef SOCK_DGRAM
+#undef SOCK_RAW
+#undef htons
+#undef htonl
+#undef ntohs
+#undef ntohl
+#undef s6_addr
+#undef s6_addr32
 #include <rsi_driver.h>
 extern const struct device *cxd5605;
 
