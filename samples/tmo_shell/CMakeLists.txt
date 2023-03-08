@@ -30,6 +30,8 @@ target_sources(app PRIVATE src/misc_test.c)
 target_sources(app PRIVATE src/tmo_file.c)
 target_sources(app PRIVATE src/tmo_sntp.c)
 target_sources(app PRIVATE src/tmo_modem.c)
+target_sources(app PRIVATE src/battery_ctrl.c)
+target_sources(app PRIVATE src/bq24250.c)
 target_sources_ifdef(CONFIG_WIFI app PRIVATE src/tmo_wifi.c)
 target_sources_ifdef(CONFIG_BT_SMP app PRIVATE src/tmo_smp.c)
 target_sources_ifdef(CONFIG_BT_PERIPHERAL app PRIVATE src/tmo_ble_demo.c)
@@ -39,6 +41,7 @@ target_sources_ifdef(CONFIG_PING app PRIVATE src/tmo_ping.c)
 target_sources_ifdef(CONFIG_TMO_HTTP_MOCK_SOCKET app PRIVATE src/tmo_http_mock_socket.c)
 target_sources_ifdef(CONFIG_PM_DEVICE app PRIVATE src/tmo_pm.c)
 target_sources_ifdef(CONFIG_PM app PRIVATE src/tmo_pm_sys.c)
+
 
 set(gen_dir ${ZEPHYR_BINARY_DIR}/include/generated/)
 

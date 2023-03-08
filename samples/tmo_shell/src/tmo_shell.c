@@ -25,7 +25,7 @@ LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 #include <zephyr/drivers/led.h>
 #include <zephyr/sys/reboot.h>
 #include <rsi_wlan_apis.h>
-#include <zephyr/drivers/fuel_gauge/sbs_battery/sbs_battery.h>
+#include <zephyr/drivers/adc/gecko_adc/gecko_adc.h>
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 #include "tls_internal.h"
@@ -54,6 +54,7 @@ typedef int sec_tag_t;
 #include "tmo_sntp.h"
 #include "tmo_modem.h"
 #include "board.h"
+#include "battery_ctrl.h"
 
 #if CONFIG_TMO_SHELL_BUILD_EK
 #include "ek18/src/kermit_cmd.h"
@@ -126,7 +127,6 @@ struct sock_rec_s socks[MAX_SOCK_REC] = {0};
 int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv);
 int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv);
 #endif
-
 int tmo_set_modem(enum murata_1sc_io_ctl cmd, union params_cmd* params, int sd)
 {
 	int res = -1;
@@ -1939,8 +1939,12 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 {
 	int err;
-	struct adc_gecko_data *data = battery_dev->data;
 	int32_t buffer;
+	uint8_t battery_attached;
+	uint8_t vbus;
+	uint8_t charging;
+	uint8_t fault;
+	uint8_t charging_status;
 
 	struct adc_sequence seq = {
 		.buffer = &buffer,
@@ -1951,24 +1955,25 @@ int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 	k_msleep(500);
 
 	seq.channels = 0;
+	charging_status = get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
     err = adc_read(battery_dev, &seq);
 	if (err < 0) {
 		shell_print(shell,"Could not read (%d)\n", err);
 	}
 
-	if (data->charging_status != 0) {
+	if (charging_status != 0) {
 		shell_error(shell, "Charger VBUS status command failed");
 	}
 	else {
-		if (!data->vbus) {
+		if (!vbus) {
 			shell_print(shell, "\tCharger is missing VBUS and is NOT charging");
 		}
 		else {
-			if (data->vbus && data->charging) {
+			if (vbus && charging) {
 				shell_print(shell, "\tCharger has VBUS and is charging");
 			}
 			else {
-				if (data->vbus && !data->charging) {
+				if (vbus && !charging) {
 					shell_print(shell, "\tCharger has VBUS and is done charging");
 				}
 			}
@@ -1994,7 +1999,7 @@ int cmd_battery_hwid(const struct shell *shell, size_t argc, char **argv)
 	if (err < 0) {
 		shell_print(shell,"Could not read (%d)\n", err);
 	}
-	shell_print(shell,"HWID = %d\n", data->hwid);
+	shell_print(shell,"HWID = %d\n", data->mVolts);
 	return 0;
 }
 
@@ -2003,6 +2008,10 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 	int err;
 	struct adc_gecko_data *data = battery_dev->data;
 	int32_t buffer;
+	uint8_t battery_attached;
+	uint8_t vbus;
+	uint8_t charging;
+	uint8_t fault;
 
 	struct adc_sequence seq = {
 		.buffer = &buffer,
@@ -2013,12 +2022,17 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 	k_msleep(500);
 
 	seq.channels = 0;
-	err = adc_read(battery_dev, &seq);
-	if (err < 0) {
-		shell_print(shell,"Could not read (%d)\n", err);
-	}
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 
-	shell_print(shell,"Battery Voltage %d.%03dV\n", data->mVolts/1000, data->mVolts%1000);
+	if (battery_attached != 0) {
+		err = adc_read(battery_dev, &seq);
+		if (err < 0) {
+			shell_print(shell,"Could not read (%d)\n", err);
+			return err;
+		}
+		shell_print(shell,"Battery Voltage %d.%03dV\n", data->mVolts/1000, data->mVolts%1000);
+	}
+	
 	return 0;
 }
 
@@ -2030,6 +2044,11 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	int err;
 	struct adc_gecko_data *data = battery_dev->data;
 	int32_t buffer;
+	uint8_t battery_attached;
+	uint8_t vbus;
+	uint8_t charging;
+	uint8_t fault;
+	uint8_t percent = 0;
 
 	struct adc_sequence seq = {
 		.buffer = &buffer,
@@ -2039,25 +2058,30 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	k_msleep(500);
 
 	seq.channels = 0;
-	err = adc_read(battery_dev, &seq);
-	if (err < 0) {
-		shell_print(shell,"Could not read (%d)\n", err);
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+
+	if (battery_attached != 0) {
+		err = adc_read(battery_dev, &seq);
+		if (err < 0) {
+			shell_print(shell,"Could not read (%d)\n", err);
+			return err;
+		}
 	}
 
 	millivolts = data->mVolts;
-	old_percent = data->percent;
+	old_percent = percent;
 
-	shell_print(shell, "Battery level is currently %d%%", data->percent);
+	shell_print(shell, "Battery level is currently %d%%", percent);
 
-	if (data->charging) {
+	if (charging) {
 		shell_warn(shell, "Battery is currently charging, unplug USB-C to discharge!");
-	} else if ( data->percent > 60) {
+	} else if ( percent > 60) {
 		shell_print(shell, "Discharging battery, this may take a while...");
 	}
 	shell_print(shell, "Press user button to abort...");
 
-	if ( data->percent < 60) {
-		shell_warn(shell, "Battery already below 60%% (%d%%)",  data->percent);
+	if ( percent < 60) {
+		shell_warn(shell, "Battery already below 60%% (%d%%)", percent);
 	} else {
 #ifdef LED_PWM_WHITE
 		led_on(device_get_binding("pwmleds"), LED_PWM_WHITE);
@@ -2067,15 +2091,15 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		led_on(device_get_binding("pwmleds"), LED_PWM_BLUE);
 	}
 
-	while ( data->percent > 60) {
+	while ( percent > 60) {
 		err = adc_read(battery_dev, &seq);
 		if (err < 0) {
 			shell_print(shell,"Could not read (%d)\n", err);
 		}
 
-		if ((abs(old_percent - data->percent) > 5) && (( data->percent % 5) == 0)) {
-			shell_print(shell, "Battery level is now (%d%%)...", data->percent);
-			old_percent = data->percent;
+		if ((abs(old_percent - percent) > 5) && (( percent % 5) == 0)) {
+			shell_print(shell, "Battery level is now (%d%%)...", percent);
+			old_percent = percent;
 		}
 		if (aio_btn_pushed) {
 			shell_warn(shell, "Button pressed, battery discharging aborted!");
@@ -2089,7 +2113,7 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		}
 	}
 
-	shell_print(shell, "Battery is discharged (%d%%), shutting down...", data->percent);
+	shell_print(shell, "Battery is discharged (%d%%), shutting down...", percent);
 	cmd_pmsysfulloff(shell, 0, NULL);
 	return 0;
 }
@@ -2097,8 +2121,13 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 {
 	int err;
-	struct adc_gecko_data *data = battery_dev->data;
 	int32_t buffer;
+	uint8_t battery_attached;
+	uint8_t vbus;
+	uint8_t charging;
+	uint8_t fault;
+	uint8_t percent = 0;
+	struct adc_gecko_data *data = battery_dev->data;
 
 	struct adc_sequence seq = {
 		.buffer = &buffer,
@@ -2109,12 +2138,17 @@ int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 	k_msleep(500);
 
 	seq.channels = 0;
-	err = adc_read(battery_dev, &seq);
-	if (err < 0) {
-		shell_print(shell,"Could not read (%d)\n", err);
-	}
+	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 
-	shell_print(shell, "\tBattery level %d percent", data->percent);
+	if (battery_attached != 0) {
+		err = adc_read(battery_dev, &seq);
+		if (err < 0) {
+			shell_print(shell,"Could not read (%d)\n", err);
+			return err;
+		}
+		percent = battery_millivolts_to_percent(data->mVolts);
+		shell_print(shell, "\tBattery level %d percent", percent);
+	}
 	return 0;
 }
 

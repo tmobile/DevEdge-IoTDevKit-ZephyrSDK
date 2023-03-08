@@ -12,7 +12,7 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/socket.h>
-#include <zephyr/drivers/fuel_gauge/sbs_battery/sbs_battery.h>
+#include <zephyr/drivers/adc/gecko_adc/gecko_adc.h>
 #if CONFIG_MODEM
 #include "modem_sms.h"
 #include <zephyr/drivers/modem/murata-1sc.h>
@@ -23,6 +23,7 @@
 #include "tmo_web_demo.h"
 #include "tmo_http_request.h"
 #include "tmo_shell.h"
+#include "battery_ctrl.h"
 
 static struct web_demo_settings_t web_demo_settings = {false, 0, 2, TRANSMIT_INTERVAL_SECS_WEB};
 #define MAX_BASE_URL_SIZE  100
@@ -171,6 +172,9 @@ int  create_json()
 	memset(json_payload, 0, MAX_PAYLOAD_BUFFER_SIZE);
 	struct adc_gecko_data *data = battery_dev->data;
 	int32_t buffer;
+	uint8_t vbus;
+	uint8_t charging;
+    uint8_t percent = 0;
 
 	struct adc_sequence seq = {
 		.buffer = &buffer,
@@ -208,11 +212,14 @@ int  create_json()
 	if (ret_val >= 0 && total_bytes_written < buffer_size) {
 		uint32_t millivolts = 0;
 		enum battery_state e_bat_state = battery_state_not_attached;
+
+        get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+
 		if (battery_attached !=0) {
 			seq.channels = 0;
 			adc_read(battery_dev, &seq);
 			millivolts = data->mVolts;
-			if (data->vbus && data->charging) {
+			if (vbus && charging) {
 				e_bat_state = battery_state_charging;
 			} else {
 				e_bat_state = battery_state_not_charging;
@@ -220,9 +227,10 @@ int  create_json()
 		} else {
 			e_bat_state = battery_state_not_attached;
 		}
+        percent = battery_millivolts_to_percent(data->mVolts);
 		ret_val = snprintf(json_payload+total_bytes_written, num_bytes_avail_buffer,
 				"\"battery\":{\n\"voltage\":%d.%03d,\n\"percent\":%d,\n\"state\":\"%s\"\n},\n",
-				millivolts/1000, millivolts%1000, data->percent,
+				millivolts/1000, millivolts%1000, percent,
 				battery_state_string[e_bat_state]);
 	} else {
 		return ret_val;
@@ -321,23 +329,13 @@ static void tmo_web_demo_notif_thread(void *a, void *b, void *c)
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
 	k_sleep(K_SECONDS(TRANSMIT_INTERVAL_SECS_WEB));
-	struct adc_gecko_data *data = battery_dev->data;
-	int32_t buffer;
-
-	struct adc_sequence seq = {
-		.buffer = &buffer,
-		.buffer_size = sizeof(buffer),
-		.resolution = 12
-	};
-
+	uint8_t vbus;
+	uint8_t charging;
 
 	while (1) {
 		k_sleep(K_SECONDS(web_demo_settings.transmit_interval));
 		if (get_transmit_flag()) {
-			seq.channels = 0;
-			adc_read(battery_dev, &seq);
-			battery_attached = data->battery_attached;
-			fault = data->fault;
+            get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 			create_json();
 			increment_number_http_requests();
 			tmo_http_json();
