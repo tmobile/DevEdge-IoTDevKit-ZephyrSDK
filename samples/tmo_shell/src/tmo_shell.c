@@ -2279,13 +2279,27 @@ K_TIMER_DEFINE(led_blink_timer, led_blnk_tmr_f, NULL);
 
 int cmd_mfg_test(const struct shell *shell, size_t argc, char **argv)
 {
-	k_timer_stop(&led_blink_timer);
 	int rc = 0;
+
 	shell_print(shell, "Run mfg tests...");
+	k_timer_stop(&led_blink_timer);
+
+	/* Print slot info */
+#ifndef BOOT_SLOT
+	shell_print(shell, "Bootloader not in use");
+#else
+	print_gecko_slot_info();
+#endif
+
+	/* Print version of tmo_shell */
+	cmd_version(shell, argc, argv);
+
 	rc |= buzzer_test();
 	k_sleep(K_SECONDS(1));
+
 	rc |= led_test();
 	k_sleep(K_SECONDS(2));
+
 	rc |=misc_test();
 #if CONFIG_TMO_TEST_MFG_CHECK_GOLDEN
 	rc |= golden_check();
@@ -2299,18 +2313,18 @@ int cmd_mfg_test(const struct shell *shell, size_t argc, char **argv)
 		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_INFO, "TESTS PASSED\n");
 	} else if (rc == 0 && !fw_test_passed) {
 		led_on(pwm_dev, LED_PWM_BLUE); // Blue LED
-		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_WARNING, "FIRMWARE OUT OF DATE\n");
+		shell_warn(shell, "FIRMWARE OUT OF DATE");
 		restore_led = LED_PWM_BLUE;
 		k_timer_start(&led_blink_timer, K_MSEC(500), K_SECONDS(1));
 	} else if (rc == 0 && !acc_code_test_passed) {
 		led_on(pwm_dev, LED_PWM_BLUE); // Blue LED
-		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_WARNING, "ACCESS CODE FAILURE\n");
+		shell_warn(shell, "ACCESS CODE FAILURE");
 		restore_led = LED_PWM_BLUE;
 		k_timer_start(&led_blink_timer, K_MSEC(1), K_SECONDS(1));
 	} else {
 		led_on(pwm_dev, LED_PWM_RED); // Red LED
 		restore_led = LED_PWM_RED;
-		shell_fprintf(shell_backend_uart_get_ptr(), SHELL_ERROR, "TESTS FAILED\n");
+		shell_error(shell, "TESTS FAILED");
 		k_timer_start(&led_blink_timer, K_MSEC(500), K_MSEC(500));
 	}
 	return 0;
