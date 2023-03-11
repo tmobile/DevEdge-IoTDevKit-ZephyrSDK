@@ -1,0 +1,32 @@
+# Copyright (c) 2023 T-Mobile USA, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+mainmenu "ams OSRAM TSL2540"
+
+config APP_LIGHT_ALERT_HIGH_THRESH
+	int "High threshold for alert trigger in lux"
+	range 0 79110
+	default 1000
+	help
+		TODO: replace the following text with relevant information
+		Set this to enable alerts for high lux
+		although this will work with one shot enabled,
+		it requires continuous monitoring mode to be enabled
+		to work in real time.
+		See spec sheet for more details.
+
+config APP_LIGHT_ALERT_LOW_THRESH
+	int "Low threshold for alert trigger in lux"
+	range 0 79110
+	default 10
+	help
+		TODO: replace the following text with relevant information
+		Set this to enable alerts for low temperatures
+		although this will work with one shot enabled,
+		it requires continuous monitoring mode to be enabled
+		to work in real time.
+		See spec sheet for more details.
+
+source "Kconfig.zephyr"
