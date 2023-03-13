@@ -12,6 +12,10 @@
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
 
+#if DT_NODE_EXISTS(DT_NODELABEL(sonycxd5605))
+#include "tmo_gnss.h"
+#endif
+
 #define I2C_0 DT_NODE_FULL_NAME(DT_NODELABEL(i2c0))
 #define I2C_1 DT_NODE_FULL_NAME(DT_NODELABEL(i2c1))
 

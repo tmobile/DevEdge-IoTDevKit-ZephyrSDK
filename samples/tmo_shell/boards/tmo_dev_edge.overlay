@@ -3,3 +3,42 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+ #include <zephyr/dt-bindings/adc/adc.h>
+ #include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	zephyr,user {
+		/* adjust channel number according to pinmux in board.dts */
+		io-channels = <&adc 0>, <&adc 1>;
+        battsense-gpios = <&gpiok 0 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&gpiok {
+    hog1 {
+        gpio-hog;
+        gpios = <0 GPIO_ACTIVE_HIGH>;
+        output-high;
+    };
+};
+
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1_3";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 32)>;
+		zephyr,resolution = <12>;
+	};
+
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1_3";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 32)>;
+		zephyr,resolution = <12>;
+	};
+};
