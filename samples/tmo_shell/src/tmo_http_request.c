@@ -19,6 +19,7 @@ LOG_MODULE_REGISTER(tmo_http_request, LOG_LEVEL_DBG);
 #include "ca_certificate.h"
 #include "tmo_web_demo.h"
 #include "tmo_shell.h"
+#include "tmo_certs.h"
 
 #if CONFIG_MODEM
 #include <zephyr/drivers/modem/murata-1sc.h>
@@ -181,9 +182,12 @@ void tmo_http_json()
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 	if (tls) {
-		tls_credential_delete(CA_CERTIFICATE_TAG, TLS_CREDENTIAL_CA_CERTIFICATE);
-		tls_credential_add(CA_CERTIFICATE_TAG, TLS_CREDENTIAL_CA_CERTIFICATE,
-				entrust_g2, sizeof(entrust_g2));
+		
+		if (!ca_cert_sz) {
+			tls_credential_delete(CA_CERTIFICATE_TAG, TLS_CREDENTIAL_CA_CERTIFICATE);
+			tls_credential_add(CA_CERTIFICATE_TAG, TLS_CREDENTIAL_CA_CERTIFICATE,
+					entrust_g2, sizeof(entrust_g2));
+		}
 
 		sock = zsock_socket_ext(res->ai_family, res->ai_socktype, IPPROTO_TLS_1_2, iface);
 	} else
@@ -208,11 +212,12 @@ void tmo_http_json()
 
 		zsock_setsockopt(sock, SOL_TLS, TLS_HOSTNAME,
 				host, strlen(host) + 1);
-		// printf("zsock_setsockopt returned %d (errno = %d)\n", ret, errno);
 	}
 #endif
+#if CONFIG_MODEM
 	int tls_verify_val = TLS_PEER_VERIFY_NONE;
 	zsock_setsockopt(sock, SOL_TLS, TLS_PEER_VERIFY, &tls_verify_val, sizeof(tls_verify_val));
+#endif
 	//Now connect the socket
 	ret = zsock_connect(sock, res->ai_addr, res->ai_addrlen);
 
