@@ -572,8 +572,8 @@ void button_stat_change(const struct device *dev, struct gpio_callback *cb,
 	k_sem_give(&update_sem);
 	k_sem_give(&ble_thd_sem);
 }
+
 #if CONFIG_MODEM
-#include "modem_sms.h"
 
 static uint64_t get_imei()
 {
@@ -625,8 +625,6 @@ static ssize_t cell_rssi_rd_cb(struct bt_conn *conn,
 // Cellular Service UUID: 2618484c-7465-441d-bc3f-35f1af1c6f16
 #define UUID_TMO_CELL_SVC \
 	uuid128(0x2618484c, 0x7465, 0x441d, 0xbc3f, 0x35f1af1c6f16)
-
-// Cell tower characteristic: 55f78d7f-6f97-4444-9b77-00dcc9d5a07c
 
 // Cell strength characteristic: 0e3b403a4-e97d-4401-8d09-87b6af705298 int8t
 #define UUID_TMO_CELL_RSSI \

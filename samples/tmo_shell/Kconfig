@@ -16,6 +16,11 @@ config TMO_SHELL_USE_MBED
     bool "Configure HTTP to use mbedTLS for TLS connections"
     default n
 
+config TMO_SHELL_ASYNC_SMS
+    bool "Use asynchronous callback for SMS"
+    select MODEM_SMS_CALLBACK
+    default n
+
 config TMO_SHELL_BUILD_EK
     bool "Build in ekermit"
     select USE_SEGGER_RTT

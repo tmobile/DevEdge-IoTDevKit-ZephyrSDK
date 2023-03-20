@@ -227,3 +227,38 @@ int tmo_modem_get_imsi(char* res, int res_len) {
 int tmo_modem_get_msisdn(char* res, int res_len) {
 	return tmo_modem_atcmd_str_get(res, res_len, msisdn_e);
 }
+
+#if CONFIG_MODEM_SMS && CONFIG_TMO_SHELL_ASYNC_SMS
+#include <zephyr/drivers/modem/sms.h>
+#include <zephyr/shell/shell.h>
+#include <zephyr/shell/shell_uart.h>
+
+static void on_sms_recv(const struct device *dev, struct sms_in *sms, int csms_ref,
+			 int csms_idx, int csms_tot)
+{
+	ARG_UNUSED(dev);
+	const struct shell *sh = shell_backend_uart_get_ptr();
+
+	shell_print(sh, "SMS Received [%d/%d] from %s, sent at %s:\n%s", 
+			csms_idx, csms_tot, sms->phone, sms->time, sms->msg);
+	
+}
+
+static struct sms_recv_cb recv_cb = {
+	.recv = on_sms_recv,
+};
+
+static int sms_recv_cb_init(const struct device *unused)
+{
+	ARG_UNUSED(unused);
+
+	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(murata_1sc));
+
+	sms_recv_cb_register(&recv_cb);
+	sms_recv_cb_en(dev, 1);
+
+	return 0;
+}
+
+SYS_INIT(sms_recv_cb_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+#endif /* CONFIG_MODEM_SMS && CONFIG_TMO_SHELL_ASYNC_SMS */

@@ -38,7 +38,7 @@ typedef int sec_tag_t;
 
 #if CONFIG_MODEM
 #include <zephyr/drivers/modem/murata-1sc.h>
-#include "modem_sms.h"
+#include <zephyr/drivers/modem/sms.h>
 #endif
 
 #include "tmo_http_request.h"
@@ -1102,7 +1102,7 @@ int sock_close(const struct shell *shell, size_t argc, char **argv)
 	return stat;
 }
 
-#if CONFIG_MODEM
+#if CONFIG_MODEM  && CONFIG_MODEM_SMS
 int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 {
 	int ret;
@@ -1132,7 +1132,6 @@ int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 	strncpy(sms.phone, argv[2], SMS_PHONE_MAX_LEN);
 	strncpy(sms.msg, argv[3], CONFIG_MODEM_SMS_OUT_MSG_MAX_LEN + 1);
 	ret = fcntl_ptr(sock_idx, SMS_SEND, &sms);
-
 	return ret;
 }
 
@@ -1169,7 +1168,8 @@ int sock_recvsms(const struct shell *shell, size_t argc, char **argv)
 		shell_print(shell, "No SMS received!");
 	return ret;
 }
-#endif /* CONFIG_MODEM */
+#endif /* CONFIG_MODEM && CONFIG_MODEM_SMS */
+
 int cmd_list_socks(const struct shell *shell, size_t argc, char **argv)
 {
 	enum proto_idx {
@@ -1342,9 +1342,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_tcp_sub,
 #endif
 		SHELL_CMD(recv, NULL, "<socket>", tcp_rcv),
 		SHELL_CMD(recvb, NULL,  "<socket> <size>", tcp_recvb),
-#if CONFIG_MODEM
+#if CONFIG_MODEM && CONFIG_MODEM_SMS
 		SHELL_CMD(recvsms, NULL, "<socket> <wait time (seconds)>", sock_recvsms),
-#endif /* CONFIG_MODEM */
+#endif /* CONFIG_MODEM && CONFIG_MODEM_SMS */
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 		SHELL_CMD(secure_create, NULL, "<iface>", tcp_create_tls),
 #if IS_ENABLED(CONFIG_NET_IPV6)
@@ -1353,9 +1353,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_tcp_sub,
 #endif
 		SHELL_CMD(send, NULL, "<socket> <payload>", tcp_send),
 		SHELL_CMD(sendb, NULL,  "<socket> <size>", tcp_sendb),
-#if CONFIG_MODEM
+#if CONFIG_MODEM && CONFIG_MODEM_SMS
 		SHELL_CMD(sendsms, NULL, "<socket> <phone number> <message>", sock_sendsms),
-#endif /* CONFIG_MODEM */
+#endif /* CONFIG_MODEM && CONFIG_MODEM_SMS */
 		SHELL_CMD(xfersz, NULL,  "[size]", sock_mxfragment),
 		SHELL_SUBCMD_SET_END
 		);
