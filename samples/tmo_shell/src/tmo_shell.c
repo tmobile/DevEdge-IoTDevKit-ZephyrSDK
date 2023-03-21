@@ -1619,7 +1619,7 @@ int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **arg
 			u->psm.t3324 = t3324 + (t3324_mul << 5);
 
 			shell_print(shell, "Set PSM mode: %d,\n"
-					"\tT3412 Unit: %d, T3412 Value: %d, T3324 Unit: %d, T3324 Value: %d",
+					"    T3412 Unit: %d, T3412 Value: %d, T3324 Unit: %d, T3324 Value: %d",
 					mode, t3412_mul, t3412, t3324_mul, t3324);
 			tmo_set_modem(AT_MODEM_PSM_SET,(union params_cmd*) u, sd);
 		} else {
@@ -1716,9 +1716,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(ble_adv_sub,
 		SHELL_CMD(conn, NULL, "Advertise as connectable", cmd_ble_adv_conn),
 		SHELL_CMD(eddystone, NULL, "Advertise as eddystone beacon", cmd_ble_adv_ebeacon),
 		SHELL_CMD(ibeacon, NULL, "Advertise as ibeacon\n"
-			"\tUsage:\n"
-			"\t tmo ble adv ibeacon <uuid (optional)> <major (optional)>\n"
-			"\t  <minor (optional)> <rssi at 1m (optional)>",
+			"Usage:\n"
+			"    tmo ble adv ibeacon <uuid (optional)> <major (optional)>\n"
+			"    <minor (optional)> <rssi at 1m (optional)>",
 			cmd_ble_adv_ibeacon),
 		SHELL_SUBCMD_SET_END
 		);
@@ -2065,41 +2065,49 @@ int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 
 	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
 	if (status != 0) {
-		shell_error(shell, "Charger VBUS status command failed");
+		shell_error(shell, "Charger status command failed");
 	}
 	else {
 		if (!attached) {
-			shell_print(shell, "\tNo battery attached");
+			shell_print(shell, "No battery attached");
 		} else if (!vbus) {
-			shell_print(shell, "\tCharger is missing VBUS and is NOT charging");
+			shell_print(shell, "Charger is missing VBUS and is NOT charging");
 		}
 		else {
 			if (vbus && charging) {
-				shell_print(shell, "\tCharger has VBUS and is charging");
+				shell_print(shell, "Charger has VBUS and is charging");
 			}
 			else {
 				if (vbus && !charging) {
-					shell_print(shell, "\tCharger has VBUS and is done charging");
+					shell_print(shell, "Charger has VBUS and is done charging");
 				}
 			}
 		}
 	}
-	return 0;
+	return status;
 }
 
 int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 {
+	int status;
 	uint32_t millivolts = 0;
-	uint8_t battery_attached = 0;
+	uint8_t attached = 0;
 	uint8_t charging = 0;
         uint8_t vbus = 0;
 	uint8_t fault = 0;
 
-	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	millivolts = read_battery_voltage();
-	shell_print(shell, "\tBattery voltage %d.%03dV", millivolts/1000, millivolts%1000);
-
-	return millivolts;
+	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
+	if (status != 0) {
+		shell_error(shell, "Charger status command failed");
+	} else {
+		if (!attached) {
+			shell_print(shell, "No battery attached");
+		} else {
+			millivolts = read_battery_voltage();
+			shell_print(shell, "Battery voltage %d.%03dV", millivolts/1000, millivolts%1000);
+		}
+	}
+	return status;
 }
 
 extern uint8_t aio_btn_pushed;
@@ -2109,7 +2117,7 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	uint8_t percent = 100;
 	uint8_t old_percent = 0;
 	uint32_t millivolts = 0;
-	uint8_t battery_attached = 0;
+	uint8_t attached = 0;
 	uint8_t charging = 0;
         uint8_t vbus = 0;
 	uint8_t fault= 0;
@@ -2130,8 +2138,8 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	}
 	shell_print(shell, "Discharge setpoint: %d", set_point);
 
-	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (battery_attached !=  0) {
+	get_battery_charging_status(&charging, &vbus, &attached, &fault);
+	if (attached !=  0) {
 		millivolts = read_battery_voltage();
 		millivolts_to_percent(millivolts, &percent);
 		old_percent = percent;
@@ -2161,8 +2169,8 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	while (percent > set_point) {
-		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-		if (battery_attached !=  0) {
+		get_battery_charging_status(&charging, &vbus, &attached, &fault);
+		if (attached !=  0) {
 			millivolts = read_battery_voltage();
 			millivolts_to_percent(millivolts, &percent);
 		} else {
@@ -2193,18 +2201,27 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 {
+	int status;
 	uint8_t percent = 0;
 	uint32_t millivolts = 0;
-	uint8_t battery_attached = 0;
+	uint8_t attached = 0;
 	uint8_t charging = 0;
         uint8_t vbus = 0;
 	uint8_t fault= 0;
 
-	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	millivolts = read_battery_voltage();
-	millivolts_to_percent(millivolts, &percent);
-	shell_print(shell, "\tBattery level %d percent", percent);
-	return 0;
+	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
+	if (status != 0) {
+		shell_error(shell, "Charger status command failed");
+	} else {
+		if (!attached) {
+			shell_print(shell, "No battery attached");
+		} else {
+			millivolts = read_battery_voltage();
+			millivolts_to_percent(millivolts, &percent);
+			shell_print(shell, "Battery level %d percent", percent);
+		}
+	}
+	return status;
 }
 
 int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv)
@@ -2213,7 +2230,7 @@ int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Missing required arguments");
 		shell_print(shell, "Usage: tmo udp %s <operation> <socket>>\n"
 				"   operation:w to write,  d to delete dtls credential from modem NVRAM\n"
-				"	socket: socket descriptor", argv[0]);
+				"   socket: socket descriptor", argv[0]);
 		return -EINVAL;
 	}
 	return tmo_dtls_cred(shell, argv[0], argv[1], (int) strtol(argv[2], NULL, 10));
