@@ -74,6 +74,8 @@ typedef int sec_tag_t;
 #include "tmo_pm_sys.h"
 #endif
 
+#include "tmo_tone_player.h"
+
 const struct device *ext_flash_dev = NULL;
 const struct device *gecko_flash_dev = NULL;
 
@@ -2463,6 +2465,19 @@ static int mountfs()
 	return rc;
 }
 
+int cmd_play_tone_file(const struct shell *shell, size_t argc, char **argv)
+{
+	if (argc == 2) {
+		if (!play_tone_bin(argv[1], NULL)) {
+			shell_fprintf(shell, SHELL_VT100_COLOR_GREEN, "Now playing %s\n", argv[1]);
+		}
+	} else {
+		shell_error(shell, "Usage: tmo buzzer player <filename>");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 int cmd_play_tone(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc != 3) {
@@ -2548,6 +2563,7 @@ int cmd_tmo_buzzer_vol(const struct shell *shell, int argc, char**argv)
 SHELL_STATIC_SUBCMD_SET_CREATE(tmo_buzzer_sub,
 		SHELL_CMD(jingle, NULL, "Play TMO jingle", tmo_play_jingle),
 		SHELL_CMD(ramp, NULL, "Play ramp tune", tmo_play_ramp),
+		SHELL_CMD(player, NULL, "Play a tone file", cmd_play_tone_file),
 		SHELL_CMD(tone, NULL, "Play a tone for a time", cmd_play_tone),
 		SHELL_CMD(vol, NULL, "Set buzzer volume", cmd_tmo_buzzer_vol),
 		SHELL_SUBCMD_SET_END
