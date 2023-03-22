@@ -1,0 +1,3 @@
+pyserial
+pretty_midi
+tqdm
