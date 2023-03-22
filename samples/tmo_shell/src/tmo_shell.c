@@ -1120,11 +1120,14 @@ int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 		shell_error(shell, "Socket %d not found", sd);
 		return -EINVAL;
 	}
-	// shell_print(shell, "About to call fcntl to send sms, phone: %s, msg: %s\n", argv[2], argv[3]);
-	snprintf(sms.phone, SMS_PHONE_MAX_LEN, "%s", argv[2]);
-	snprintf(sms.msg, CONFIG_MODEM_SMS_OUT_MSG_MAX_LEN + 1, "%s", argv[3]);
+	if (strlen(argv[3]) > CONFIG_MODEM_SMS_OUT_MSG_MAX_LEN) { 
+		shell_warn(shell, "SMS message exceeds limit (%d>%d), truncating message",
+				strlen(argv[3]), CONFIG_MODEM_SMS_OUT_MSG_MAX_LEN);
+	}
+	strncpy(sms.phone, argv[2], SMS_PHONE_MAX_LEN);
+	strncpy(sms.msg, argv[3], CONFIG_MODEM_SMS_OUT_MSG_MAX_LEN + 1);
 	ret = fcntl_ptr(sock_idx, SMS_SEND, &sms);
-	// printf("returned from fcntl, ret = %d\n", ret);
+
 	return ret;
 }
 
