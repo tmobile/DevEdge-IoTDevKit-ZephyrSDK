@@ -38,8 +38,9 @@ struct fs_dirent* my_finfo;
 
 #define MAX_BASE_URL_LEN 256
 static char base_url_s[MAX_BASE_URL_LEN];
-static char user_base_url_s[MAX_BASE_URL_LEN] = "https://devkit.devedge.t-mobile.com/bin/";
-
+static char user_base_url_s[MAX_BASE_URL_LEN] =
+	"https://raw.githubusercontent.com/tmobile/DevEdge"
+	"-IoTDevKit-Binaries/main/tmo/tmo_shell/silabs_pg12b/";
 static char dfu_auth_key[42];
 
 static int iface_s = WIFI_ID; // Default iface is wifi
@@ -209,7 +210,7 @@ int tmo_dfu_download(const struct shell *shell, enum dfu_tgts dfu_tgt, char *bas
 			sprintf((char *)dfu_files_modem[0].lfile, "/tmo/%s.ua",base);
 			dfu_files = dfu_files_modem;
 
-			sprintf(base_url_s,"%smurata_1sc/",user_base_url_s);
+			sprintf(base_url_s,"%smurata/1sc/",user_base_url_s);
 			break;
 
 		case DFU_9116W:
