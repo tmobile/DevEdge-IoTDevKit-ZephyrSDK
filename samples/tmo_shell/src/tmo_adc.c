@@ -25,6 +25,7 @@ K_SEM_DEFINE(adc_sem, 0, 1);
 static ADC_InitSingle_TypeDef initSingle_bv = ADC_INITSINGLE_DEFAULT;
 static ADC_InitSingle_TypeDef initSingle_hwid = ADC_INITSINGLE_DEFAULT;
 
+#ifdef HWID_APORT
 /**
  * @brief Set the VBAT_SNS_EN Pin High to enable ADC readings
  * 
@@ -39,6 +40,7 @@ static void set_vbat_sens_en(bool enable)
 	GPIO_PinModeSet(VBAT_EN_PORT, VBAT_EN_PIN, gpioModePushPull, enable);
 #endif /* VBAT_EN_PORT */
 }
+#endif /* HWID_APORT */
 
 /**
  * @brief Initialize the Gecko ADC
