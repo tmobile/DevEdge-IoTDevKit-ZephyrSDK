@@ -265,6 +265,11 @@ int tcp_create_tls_core(const struct shell *shell, size_t argc, char **argv, int
 	}
 	socks[idx].flags |= BIT(sock_tls);
 
+#if CONFIG_MODEM
+	int tls_verify_val = TLS_PEER_VERIFY_NONE;
+	zsock_setsockopt(sd, SOL_TLS, TLS_PEER_VERIFY, &tls_verify_val, sizeof(tls_verify_val));
+#endif
+
 	return ret;
 }
 
