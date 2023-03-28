@@ -83,7 +83,7 @@ static void date_print(const struct shell *shell, struct tm *tm)
 static int time_date_set(const struct shell *shell, uint32_t epoch_sec)
 {
 	struct tm tm;
-	struct timespec tp;
+	struct timespec tp = {0};
 	tp.tv_sec = (uint32_t)epoch_sec;
 
 	gmtime_r(&tp.tv_sec, &tm);
@@ -203,7 +203,7 @@ int tmo_update_time(const struct shell *shell, char *host, int iface_idx)
 #ifdef DEBUG
 	shell_print(shell, "epoch %lld", txTm);
 #endif
-	time_date_set(shell,txTm);
+	time_date_set(shell, txTm);
 	zsock_close(sd);
 	return 0;
 }
