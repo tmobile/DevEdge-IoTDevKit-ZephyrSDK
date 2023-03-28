@@ -40,7 +40,7 @@ struct fs_dirent* my_finfo;
 static char base_url_s[MAX_BASE_URL_LEN];
 static char user_base_url_s[MAX_BASE_URL_LEN] =
 	"https://raw.githubusercontent.com/tmobile/DevEdge"
-	"-IoTDevKit-Binaries/main/tmo/tmo_shell/silabs_pg12b/";
+	"-IoTDevKit-Binaries/main/";
 static char dfu_auth_key[42];
 
 static int iface_s = WIFI_ID; // Default iface is wifi

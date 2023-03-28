@@ -1805,7 +1805,7 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	if (argc <= 2 && target == 2) { // have wifi
-		return tmo_dfu_download(shell, target, "rs9116w/RS9116W.2.7.0.0.39", argv[3]);
+		return tmo_dfu_download(shell, target, "rs9116w/RS9116W.2.7.1.0.8", argv[3]);
 	}
 
 #ifndef BOOT_SLOT
