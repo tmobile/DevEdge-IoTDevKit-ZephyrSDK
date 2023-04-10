@@ -5,7 +5,7 @@
 #include <zephyr/net/socket.h>
 
 /* Hardcoded for now */
-#define TMO_MODEM_IFACE_NUMBER    1
+#define TMO_MODEM_IFACE_NUMBER 1
 
 #ifdef CONFIG_SOC_SERIES_EFM32PG12B
 
@@ -23,7 +23,8 @@
  * @param ptr The pointer to send encoded as a positive signed integer.
  * @return int The fcntl return if the pointer can be cast, or -EOVERFLOW on error
  */
-int fcntl_ptr(int sock, int cmd, const void* ptr) {
+int fcntl_ptr(int sock, int cmd, const void *ptr)
+{
 	uintptr_t uiptr = (uintptr_t)ptr;
 	/* It's fine if this overflows */
 	unsigned int flags = uiptr;
@@ -32,13 +33,14 @@ int fcntl_ptr(int sock, int cmd, const void* ptr) {
 		return -EOVERFLOW;
 	}
 
-	/* va_arg is defined for (unsigned T) -> (signed T) as long as the value can be represented by both types (C11 7.16.1.1) */
+	/* va_arg is defined for (unsigned T) -> (signed T) as long as the value can be represented
+	 * by both types (C11 7.16.1.1) */
 	return zsock_fcntl(sock, cmd, flags);
 }
 
-
 #else
-int fcntl_ptr(int sock, int cmd, const void* ptr) {
+int fcntl_ptr(int sock, int cmd, const void *ptr)
+{
 	(void)sock;
 	(void)cmd;
 	(void)ptr;
@@ -46,11 +48,10 @@ int fcntl_ptr(int sock, int cmd, const void* ptr) {
 	return -ENOTSUP;
 }
 
-
 #endif
 
-#define MAX_CMD_BUF_SIZE    256
-char cmd_io_buf[MAX_CMD_BUF_SIZE] = { 0 };
+#define MAX_CMD_BUF_SIZE 256
+char cmd_io_buf[MAX_CMD_BUF_SIZE] = {0};
 
 /* The resp buffer must be "owned" by whoever is making the call */
 K_MUTEX_DEFINE(ioctl_lock);
@@ -64,7 +65,8 @@ K_MUTEX_DEFINE(ioctl_lock);
  * @param iface
  * @return int
  */
-static inline int zsock_socket_ext(int family, int type, int proto, struct net_if* iface) {
+static inline int zsock_socket_ext(int family, int type, int proto, struct net_if *iface)
+{
 	if (iface->if_dev->offload && iface->if_dev->socket_offload != NULL) {
 		return iface->if_dev->socket_offload(family, type, proto);
 	} else {
@@ -74,15 +76,15 @@ static inline int zsock_socket_ext(int family, int type, int proto, struct net_i
 	}
 }
 
-
 /**
  * @brief Returns a new sock for the Murata modem
  *
  * @param idx The index to use to find the modem
  * @return int Sock on success, -err on failure
  */
-static int tmo_modem_get_sock(int idx) {
-	struct net_if* iface = net_if_get_by_index(idx);
+static int tmo_modem_get_sock(int idx)
+{
+	struct net_if *iface = net_if_get_by_index(idx);
 	int sd;
 
 	if (iface == NULL) {
@@ -96,10 +98,10 @@ static int tmo_modem_get_sock(int idx) {
 	return sd;
 }
 
-
-static int tmo_modem_get_atcmd_resp(enum mdmdata_e cmd) {
+static int tmo_modem_get_atcmd_resp(enum mdmdata_e cmd)
+{
 	int idx = 0;
-	const char* cmd_str = NULL;
+	const char *cmd_str = NULL;
 	int sd;
 	int ret;
 
@@ -113,13 +115,12 @@ static int tmo_modem_get_atcmd_resp(enum mdmdata_e cmd) {
 	strncpy(cmd_io_buf, cmd_str, sizeof(cmd_io_buf));
 
 	/* The handler expects a non const ptr that it will sometimes write a response into */
-	sd  = tmo_modem_get_sock(TMO_MODEM_IFACE_NUMBER);
+	sd = tmo_modem_get_sock(TMO_MODEM_IFACE_NUMBER);
 	ret = fcntl_ptr(sd, GET_ATCMD_RESP, cmd_io_buf);
 	zsock_close(sd);
 
 	return ret;
 }
-
 
 /**
  * @brief A number of modem calls return a string of a known length. This function
@@ -131,7 +132,8 @@ static int tmo_modem_get_atcmd_resp(enum mdmdata_e cmd) {
  * @param type The type of call to make
  * @return int 0 on success, -err on error. -EINVAL if type is not known.
  */
-static int tmo_modem_atcmd_str_get(char* res, int res_len, enum mdmdata_e type) {
+static int tmo_modem_atcmd_str_get(char *res, int res_len, enum mdmdata_e type)
+{
 	int ret = -1;
 
 	/* Make sure the dest is long enough to support the expected response */
@@ -174,8 +176,8 @@ static int tmo_modem_atcmd_str_get(char* res, int res_len, enum mdmdata_e type) 
 	return ret;
 }
 
-
-int tmo_modem_wake() {
+int tmo_modem_wake()
+{
 	int ret;
 
 	k_mutex_lock(&ioctl_lock, K_FOREVER);
@@ -185,8 +187,8 @@ int tmo_modem_wake() {
 	return ret;
 }
 
-
-int tmo_modem_sleep() {
+int tmo_modem_sleep()
+{
 	int ret;
 
 	k_mutex_lock(&ioctl_lock, K_FOREVER);
@@ -196,35 +198,36 @@ int tmo_modem_sleep() {
 	return ret;
 }
 
-
-int tmo_modem_get_state() {
+int tmo_modem_get_state()
+{
 	int ret = -1;
 
 	k_mutex_lock(&ioctl_lock, K_FOREVER);
-	/* This call will set cmd_io_buf, but that provides no more information than the return code */
+	/* This call will set cmd_io_buf, but that provides no more information than the return code
+	 */
 	ret = tmo_modem_get_atcmd_resp(awake_e);
 	k_mutex_unlock(&ioctl_lock);
 
 	return ret;
 }
 
-
-int tmo_modem_get_imei(char* res, int res_len) {
+int tmo_modem_get_imei(char *res, int res_len)
+{
 	return tmo_modem_atcmd_str_get(res, res_len, imei_e);
 }
 
-
-int tmo_modem_get_iccid(char* res, int res_len) {
+int tmo_modem_get_iccid(char *res, int res_len)
+{
 	return tmo_modem_atcmd_str_get(res, res_len, iccid_e);
 }
 
-
-int tmo_modem_get_imsi(char* res, int res_len) {
+int tmo_modem_get_imsi(char *res, int res_len)
+{
 	return tmo_modem_atcmd_str_get(res, res_len, imsi_e);
 }
 
-
-int tmo_modem_get_msisdn(char* res, int res_len) {
+int tmo_modem_get_msisdn(char *res, int res_len)
+{
 	return tmo_modem_atcmd_str_get(res, res_len, msisdn_e);
 }
 
