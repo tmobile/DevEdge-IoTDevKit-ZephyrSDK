@@ -80,6 +80,13 @@ int misc_test()
 	} else {
 		printf("i2c read " I2C_1 " 24 10 - Sony cxd5605 GNSS - shell command was successful\n");
 	}
+
+	if ((ret = gnss_version()) != 0) {
+		printf("tmo gnssversion failed %d\n", ret);
+		rc |= ret;
+	} else {
+		printf("tmo gnssversion passed\n");
+	}
 #endif
 
 #if DT_NODE_EXISTS(DT_NODELABEL(tsl2540))

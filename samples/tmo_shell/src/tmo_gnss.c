@@ -84,7 +84,7 @@ void ln_buf_gen(void)
 
 int gnss_version(void)
 {
-	int rc;
+	int rc = 0;
 	struct sensor_value sens_values = {0,0};
 	uint32_t major;
 	uint32_t minor;
@@ -92,21 +92,25 @@ int gnss_version(void)
 
 	sens_values.val1 = 0;
 	sens_values.val2 = 0;
-	rc = sensor_attr_get(cxd5605,GNSS_CHANNEL_POSITION,GNSS_ATTRIBUTE_VER, &sens_values);
+	rc |= sensor_attr_get(cxd5605,GNSS_CHANNEL_POSITION,GNSS_ATTRIBUTE_VER, &sens_values);
 	major = sens_values.val2;
 	sens_values.val1 = 1;
 	sens_values.val2 = 0;
-	rc = sensor_attr_get(cxd5605,GNSS_CHANNEL_POSITION,GNSS_ATTRIBUTE_VER, &sens_values);
+	rc |= sensor_attr_get(cxd5605,GNSS_CHANNEL_POSITION,GNSS_ATTRIBUTE_VER, &sens_values);
 	minor = sens_values.val2;
 	sens_values.val1 = 2;
 	sens_values.val2 = 0;
-	rc = sensor_attr_get(cxd5605,GNSS_CHANNEL_POSITION,GNSS_ATTRIBUTE_VER, &sens_values);
+	rc |= sensor_attr_get(cxd5605,GNSS_CHANNEL_POSITION,GNSS_ATTRIBUTE_VER, &sens_values);
 	patch = sens_values.val2;
 
 	if (rc) {
 		printf("No GNSS chip FW detected\n");
 	} else {
-		printf("GNSS chip FW version: 0x%X.0x%X.0x%X\n", major,minor,patch);
+		printf("GNSS chip FW version: 0x%X.0x%X.0x%X\n", major, minor, patch);
+		if (major == 0 || minor == 0 || patch == 0) {
+			printf("GNSS chip FW not loaded\n");
+			rc = -1;
+		}
 	}
 	return rc;
 }
