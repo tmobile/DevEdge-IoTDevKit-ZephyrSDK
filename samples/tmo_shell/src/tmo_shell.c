@@ -25,6 +25,7 @@ LOG_MODULE_REGISTER(tmo_shell, LOG_LEVEL_INF);
 #include <zephyr/drivers/led.h>
 #include <zephyr/sys/reboot.h>
 #include <rsi_wlan_apis.h>
+#include <zephyr/drivers/adc/adc_gecko.h>
 
 #if defined(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
 #include "tls_internal.h"
@@ -38,7 +39,7 @@ typedef int sec_tag_t;
 
 #if CONFIG_MODEM
 #include <zephyr/drivers/modem/murata-1sc.h>
-#include "modem_sms.h"
+#include <zephyr/drivers/modem/sms.h>
 #endif
 
 #include "tmo_http_request.h"
@@ -49,14 +50,13 @@ typedef int sec_tag_t;
 #include "tmo_dfu_download.h"
 #include "tmo_file.h"
 #include "tmo_certs.h"
-#include "tmo_adc.h"
+
 #include "tmo_battery_ctrl.h"
 #include "tmo_shell.h"
 #include "tmo_sntp.h"
 #include "tmo_modem.h"
 #include "board.h"
 #include "dfu_gecko_lib.h"
-
 #if CONFIG_TMO_SHELL_BUILD_EK
 #include "ek18/src/kermit_cmd.h"
 #endif
@@ -78,6 +78,21 @@ typedef int sec_tag_t;
 
 const struct device *ext_flash_dev = NULL;
 const struct device *gecko_flash_dev = NULL;
+const struct device *gecko_adc_dev = NULL;
+
+#if !DT_NODE_EXISTS(DT_PATH(zephyr_user)) || \
+	!DT_NODE_HAS_PROP(DT_PATH(zephyr_user), io_channels)
+#error "No suitable devicetree overlay specified"
+#endif
+
+#define DT_SPEC_AND_COMMA(node_id, prop, idx) \
+	ADC_DT_SPEC_GET_BY_IDX(node_id, idx),
+
+/* Data of ADC io-channels specified in devicetree. */
+const struct adc_dt_spec adc_channels[] = {
+	DT_FOREACH_PROP_ELEM(DT_PATH(zephyr_user), io_channels,
+			     DT_SPEC_AND_COMMA)
+};
 
 #if (CONFIG_SPI_NOR - 0) || \
 	DT_NODE_HAS_STATUS(DT_INST(0, jedec_spi_nor), okay)
@@ -95,6 +110,8 @@ const struct device *gecko_flash_dev = NULL;
 #endif
 
 #define GECKO_FLASH_DEVICE DT_NODE_FULL_NAME(DT_INST(0, silabs_gecko_flash_controller))
+
+#define GECKO_ADC_DEVICE DT_NODE_FULL_NAME(DT_INST(0, silabs_gecko_adc))
 
 extern const struct device *ext_flash_dev;
 extern const struct device *gecko_flash_dev;
@@ -129,6 +146,32 @@ struct sock_rec_s socks[MAX_SOCK_REC] = {0};
 int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv);
 int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv);
 #endif
+
+int read_hwid()
+{
+	int32_t val_mv;
+	int status;
+	int16_t buf;
+	struct adc_sequence sequence = {
+		.buffer = &buf,
+		/* buffer size in bytes, not number of samples */
+		.buffer_size = sizeof(buf),
+	};
+
+	(void)adc_sequence_init_dt(&adc_channels[1], &sequence);
+	status = adc_read(adc_channels[1].dev, &sequence);
+	if (status < 0) {
+		shell_error(shell,"Could not read (%d)\n", status);
+		return status;
+	}
+	val_mv = (int32_t)buf;
+	status = adc_raw_to_millivolts_dt(&adc_channels[1], &val_mv);
+	/* conversion to mV may not be supported, skip if not */
+	if (status < 0)
+		shell_error(shell," (value in mV not available)\n");
+
+	return val_mv;
+}
 
 int tmo_set_modem(enum murata_1sc_io_ctl cmd, union params_cmd* params, int sd)
 {
@@ -365,7 +408,7 @@ int udp_create_dtls_core(const struct shell *shell, size_t argc, char **argv, in
 				dev_private_key,
 				sizeof(dev_private_key));
 		if (ret < 0) {
-			shell_error(shell, "<<< Failed to register dev private key  %d >>>\n", ret);
+			shell_error(shell, "<<< Failed to register dev private key %d >>>\n", ret);
 		}
 		else {
 			shell_info(shell, "===== Added DTLS dev private key credential! =========\n");
@@ -427,7 +470,7 @@ int tmo_dtls_cred(const struct shell *shell, char* cred_type, char* operation, i
 	int ret = 0;
 	struct tls_credential cred_s;
 	size_t credlen;
-	union params_cmd  params_cmd_u;
+	union params_cmd params_cmd_u;
 	union params_cmd* u = &params_cmd_u;
 	const char *cred;
 	enum tls_credential_type ct_val;
@@ -452,12 +495,12 @@ int tmo_dtls_cred(const struct shell *shell, char* cred_type, char* operation, i
 		return 1;
 	}
 	strcat(filename, ".pem");
-	if (((strcmp(operation,"w") !=  0) && (strcmp(operation,"d") != 0)) || sd < 0 || sd >= MAX_SOCK_REC ) {
+	if (((strcmp(operation,"w") != 0) && (strcmp(operation,"d") != 0)) || sd < 0 || sd >= MAX_SOCK_REC ) {
 		shell_error(shell, "\n Invalid Inputs, operation %s sd %d ", operation, sd);
 	}
 
 
-	/* Here do AT%CERTCMD  to write key cert to modem NVRAM */
+	/* Here do AT%CERTCMD to write key cert to modem NVRAM */
 	memset(u, 0, sizeof(params_cmd_u));
 	memset(&cred_s, 0, sizeof(struct tls_credential));
 	cred_s.tag = 0;
@@ -476,7 +519,7 @@ int tmo_dtls_cred(const struct shell *shell, char* cred_type, char* operation, i
 		if ((ret = tmo_set_modem(DEL_CERT, (union params_cmd*)filename, sd)) == 0) {
 			shell_info(shell, "Deleted %s using sd: %d ", cred_type, sd);
 		} else {
-			shell_error(shell, "Failed to delete %s using sd:%d  error:%d", cred_type, sd, errno);
+			shell_error(shell, "Failed to delete %s using sd:%d error:%d", cred_type, sd, errno);
 		}
 	}
 	return ret;
@@ -486,10 +529,10 @@ int tmo_dtls_cred(const struct shell *shell, char* cred_type, char* operation, i
 int tmo_profile_dtls(const struct shell *shell, char* operation, int sd)
 {
 	int ret = 0;
-		union params_cmd  params_cmd_u;
+		union params_cmd params_cmd_u;
 		union params_cmd* u = &params_cmd_u;
 
-	if (((strcmp(operation,"a") !=  0) && (strcmp(operation,"d") != 0)) || sd < 0 || sd >= MAX_SOCK_REC) {
+	if (((strcmp(operation,"a") != 0) && (strcmp(operation,"d") != 0)) || sd < 0 || sd >= MAX_SOCK_REC) {
 		shell_error(shell, "\n Invalid Inputs, operation %s sd %d ", operation, sd);
 	}
 
@@ -498,14 +541,14 @@ int tmo_profile_dtls(const struct shell *shell, char* operation, int sd)
 	u->profile.ca_file = NULL;
 	u->profile.ca_path = NULL;
 	u->profile.dev_cert = "dtls_cred_devcert.pem";
-	u->profile.dev_key =  "dtls_cred_devkey.pem";
+	u->profile.dev_key = "dtls_cred_devkey.pem";
 	u->profile.psk_id = NULL;
 	u->profile.psk_key = NULL;
 
 	if (strcmp(operation, "a") == 0) {
 		if (tmo_set_modem(CREATE_CERT_PROFILE, (union params_cmd*)u, sd) == 0) {
 			create_profile_done = true;
-			shell_info(shell, "Created cert profile: errno %d  sd %d", errno, sd);
+			shell_info(shell, "Created cert profile: errno %d sd %d", errno, sd);
 		} else {
 			shell_error(shell, "Failed to create cert profile, errno: %d sd %d", errno, sd);
 			ret = -errno;
@@ -532,7 +575,7 @@ int tmo_profile_dtls(const struct shell *shell, char* operation, int sd)
 	} else if (strcmp(operation, "d") == 0) {
 		if (tmo_set_modem(DELETE_CERT_PROFILE, (union params_cmd*)u, sd) == 0) {
 			create_profile_done = false;
-			shell_info(shell, "Deleted cert profile: errno %d  sd %d", errno, sd);
+			shell_info(shell, "Deleted cert profile: errno %d sd %d", errno, sd);
 		} else {
 			shell_error(shell, "Failed to delete cert profile: errno %d sd %d", errno, sd);
 			ret = -errno;
@@ -592,7 +635,7 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 	}
 	ret = net_ipaddr_parse(host, strlen(host), &target);
 	if (!ret) {	//try dns
-		/*  dns stuff */
+		/* dns stuff */
 		static struct addrinfo hints;
 		struct zsock_addrinfo *res;
 
@@ -639,7 +682,7 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 			}
 
 			zsock_inet_ntop(ai_family, src, tmp1, sizeof(tmp1));
-			shell_print(shell, "DNS to conn, addr: %s\n", tmp1);
+			shell_print(shell, "DNS to conn, addr: %s", tmp1);
 		}
 		if (socks[sock_idx].flags & (BIT(sock_tls) | BIT(sock_dtls))){
 			ret = setsockopt(sd, SOL_TLS, TLS_HOSTNAME,
@@ -868,7 +911,7 @@ int sock_sendb(const struct shell *shell, size_t argc, char **argv)
 		stat = zsock_send(sd, mxfer_buf + total, MIN(sendsize - total, max_fragment), 0);
 		if (stat == -1) {
 			if (errno == EMSGSIZE) {
-				shell_warn(shell, "Note: EMSGSIZE (errno=%d) may be cause by a fragment being larger than network MTU.", EMSGSIZE);
+				shell_warn(shell, "Possible fragment larger than MTU");
 			}
 			shell_error(shell, "send failed, errno = %d", errno);
 			break;
@@ -1002,9 +1045,9 @@ int sock_rcv(const struct shell *shell, size_t argc, char **argv)
 	memset(mxfer_buf, 0, XFER_SIZE);
 	stat = zsock_recv(sd, mxfer_buf, XFER_SIZE, ZSOCK_MSG_DONTWAIT);
 	if (stat > 0){
-		shell_print(shell, "RECEIVED:\n%s ", (char*)mxfer_buf);
+		shell_print(shell, "RECEIVED:\n%s", (char*)mxfer_buf);
 	} else if (stat == -1 && errno == EWOULDBLOCK) {
-		shell_print(shell, "No data available!");
+		shell_error(shell, "No data available!");
 		return stat;
 	}
 	while (stat == XFER_SIZE) {
@@ -1055,9 +1098,9 @@ int sock_rcvfrom(const struct shell *shell, size_t argc, char **argv)
 #endif
 	net_addr_ntop(ai_family, addr, addrbuf, sizeof(addrbuf));
 	if (stat > 0){
-		shell_print(shell, "RECEIVED from %s:%d:\n%s ",  addrbuf, port, (char*)mxfer_buf);
-	}  else if (stat == -1 && errno == EWOULDBLOCK) {
-		shell_print(shell, "No data available!");
+		shell_print(shell, "RECEIVED from %s:%d:\n%s", addrbuf, port, (char*)mxfer_buf);
+	} else if (stat == -1 && errno == EWOULDBLOCK) {
+		shell_error(shell, "No data available!");
 		return stat;
 	}
 	while (stat == XFER_SIZE) {
@@ -1164,7 +1207,7 @@ int sock_recvsms(const struct shell *shell, size_t argc, char **argv)
 	sms.timeout = K_SECONDS(wait);
 	ret = fcntl_ptr(sock_idx, SMS_RECV, &sms);
 	if (ret > 0)
-		shell_print(shell, "Received SMS from %s at %s: %s\n", sms.phone, sms.time, sms.msg);
+		shell_print(shell, "Received SMS from %s at %s: %s", sms.phone, sms.time, sms.msg);
 	else
 		shell_print(shell, "No SMS received!");
 	return ret;
@@ -1181,7 +1224,7 @@ int cmd_list_socks(const struct shell *shell, size_t argc, char **argv)
 	};
 	char *protos[5] = {"TCP", "UDP", "TLS", "DTLS", "?"};
 	int proto_x = 0;
-	shell_print(shell, "Open sockets: ");
+	shell_print(shell, "Open sockets:");
 	for (int i = 0; i < MAX_SOCK_REC; i++) {
 		// SD: iface=%d proto=<TLS/TCP/UDP> <CONNECTED> <BOUND>
 		if (socks[i].flags & BIT(sock_open)) {
@@ -1279,11 +1322,11 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 		strupper(cmd_buf);
 		int res = fcntl_ptr(sd, GET_ATCMD_RESP, cmd_buf);
 		if (res < 0) {
-			shell_error(shell, "request: %s failed, error: %d\n", argv[2], res);
+			shell_error(shell, "request: %s failed, error: %d", argv[2], res);
 		} else if (cmd_buf[0] == 0) {
-			shell_error(shell, "request: %s, response: <none>\n", argv[2]);
+			shell_error(shell, "request: %s, response: <none>", argv[2]);
 		} else {
-			shell_print(shell, "request: %s, response: %s\n", argv[2], cmd_buf);
+			shell_print(shell, "request: %s, response: %s", argv[2], cmd_buf);
 		}
 	}
 
@@ -1341,7 +1384,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_tcp_sub,
 		SHELL_CMD(createv6, NULL, "<iface>", tcp_createv6),
 #endif
 		SHELL_CMD(recv, NULL, "<socket>", tcp_rcv),
-		SHELL_CMD(recvb, NULL,  "<socket> <size>", tcp_recvb),
+		SHELL_CMD(recvb, NULL, "<socket> <size>", tcp_recvb),
 #if CONFIG_MODEM
 		SHELL_CMD(recvsms, NULL, "<socket> <wait time (seconds)>", sock_recvsms),
 #endif /* CONFIG_MODEM */
@@ -1352,11 +1395,11 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_tcp_sub,
 #endif
 #endif
 		SHELL_CMD(send, NULL, "<socket> <payload>", tcp_send),
-		SHELL_CMD(sendb, NULL,  "<socket> <size>", tcp_sendb),
+		SHELL_CMD(sendb, NULL, "<socket> <size>", tcp_sendb),
 #if CONFIG_MODEM
 		SHELL_CMD(sendsms, NULL, "<socket> <phone number> <message>", sock_sendsms),
 #endif /* CONFIG_MODEM */
-		SHELL_CMD(xfersz, NULL,  "[size]", sock_mxfragment),
+		SHELL_CMD(xfersz, NULL, "[size]", sock_mxfragment),
 		SHELL_SUBCMD_SET_END
 		);
 
@@ -1399,8 +1442,8 @@ int udp_close(const struct shell *shell, size_t argc, char **argv)
 SHELL_STATIC_SUBCMD_SET_CREATE(tmo_udp_sub,
 
 #if defined(CONFIG_NET_SOCKETS_ENABLE_DTLS)
-		SHELL_CMD(cert, NULL, "<w or d>  <socket>", udp_cred_dtls),
-		SHELL_CMD(ca, NULL, "<w or d>  <socket>",  udp_cred_dtls),
+		SHELL_CMD(cert, NULL, "<w or d> <socket>", udp_cred_dtls),
+		SHELL_CMD(ca, NULL, "<w or d> <socket>", udp_cred_dtls),
 #endif
 		SHELL_CMD(close, NULL, "<socket>", udp_close),
 		SHELL_CMD(connect, NULL, "<socket> <ip> <port>", udp_connect),
@@ -1410,26 +1453,26 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_udp_sub,
 #endif
 		// SHELL_CMD(bind, NULL, "<socket> <ip> <port>", sock_bind),
 #if defined(CONFIG_NET_SOCKETS_ENABLE_DTLS)
-		SHELL_CMD(key, NULL, "<w or d>  <socket>",  udp_cred_dtls),
-		SHELL_CMD(profile, NULL, "<a or d>  <socket>",  udp_profile_dtls),
+		SHELL_CMD(key, NULL, "<w or d> <socket>", udp_cred_dtls),
+		SHELL_CMD(profile, NULL, "<a or d> <socket>", udp_profile_dtls),
 		SHELL_CMD(secure_create, NULL, "<iface>", udp_create_dtls),
 #if IS_ENABLED(CONFIG_NET_IPV6)
 		SHELL_CMD(secure_createv6, NULL, "<iface>", udp_create_dtlsv6),
 #endif
 #endif
 		SHELL_CMD(recv, NULL, "<socket>", udp_rcv),
-		SHELL_CMD(recvb, NULL,  "<socket> <size>", udp_recvb),
+		SHELL_CMD(recvb, NULL, "<socket> <size>", udp_recvb),
 		SHELL_CMD(recvfrom, NULL, "<socket> <ip> <port>", sock_rcvfrom),
 #if CONFIG_MODEM
 		SHELL_CMD(recvsms, NULL, "<socket> <wait time (seconds)>", sock_recvsms),
 #endif /* CONFIG_MODEM */
 		SHELL_CMD(send, NULL, "<socket> <payload>", udp_send),
-		SHELL_CMD(sendb, NULL,  "<socket> <size>", udp_sendb),
+		SHELL_CMD(sendb, NULL, "<socket> <size>", udp_sendb),
 #if CONFIG_MODEM
 		SHELL_CMD(sendsms, NULL, "<socket> <phone number> <message>", sock_sendsms),
 #endif /* CONFIG_MODEM */
-		SHELL_CMD(sendto, NULL,  "<socket> <ip> <port> <payload>", sock_sendto),
-		SHELL_CMD(xfersz, NULL,  "<size>", sock_mxfragment),
+		SHELL_CMD(sendto, NULL, "<socket> <ip> <port> <payload>", sock_sendto),
+		SHELL_CMD(xfersz, NULL, "<size>", sock_mxfragment),
 		SHELL_SUBCMD_SET_END
 		);
 
@@ -1598,7 +1641,7 @@ void print_set_modem_edrx_usage(const struct shell *shell)
 {
 	shell_print(shell, "tmo modem <iface> edrx <mode> <Act-type> <edrx value>");
 	shell_print(shell, "mode: 0 - off, 1 - on, 2 - unsolicited messages enabled");
-	shell_print(shell, "Act-Type: 4- LTE,LTE-M,  5 - NB-IoT");
+	shell_print(shell, "Act-Type: 4 - LTE/LTE-M, 5 - NB-IoT");
 	shell_print(shell, "edrx values: 1 to 15");
 }
 
@@ -1621,8 +1664,8 @@ int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **arg
 		int t3412 = strtol(argv[5], NULL, 10);
 		int t3324_mul = strtol(argv[6], NULL, 10);
 		int t3324 = strtol(argv[7], NULL, 10);
-		if ( (mode >= 0 && mode <=1) &&  (t3412_mul >= 0 && t3412_mul <= 7) &&
-				((t3324_mul >= 0 && t3324_mul <= 2) || t3324_mul == 7)  &&
+		if ( (mode >= 0 && mode <=1) && (t3412_mul >= 0 && t3412_mul <= 7) &&
+				((t3324_mul >= 0 && t3324_mul <= 2) || t3324_mul == 7) &&
 				(t3412 >=0 && t3412 <= 31) && (t3324 >=0 && t3324 <= 31) ) {
 			u->psm.mode = mode;
 			u->psm.t3412 = t3412 + (t3412_mul << 5);
@@ -1633,11 +1676,11 @@ int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **arg
 					mode, t3412_mul, t3412, t3324_mul, t3324);
 			tmo_set_modem(AT_MODEM_PSM_SET,(union params_cmd*) u, sd);
 		} else {
-			shell_print(shell, "Invalid inputs for PSM timer");
+			shell_error(shell, "Invalid inputs for PSM timer");
 			print_set_modem_psm_usage(shell);
 		}
 	} else if (argc == 3) {
-		tmo_set_modem(AT_MODEM_PSM_GET, (union params_cmd*) u,  sd);
+		tmo_set_modem(AT_MODEM_PSM_GET, (union params_cmd*) u, sd);
 		shell_print(shell, "%s", (char *)u);
 	} else {
 		// Invalid PSM command input
@@ -1648,7 +1691,7 @@ int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **arg
 
 int process_cli_cmd_modem_edrx(const struct shell *shell, size_t argc, char **argv, int sd)
 {
-	union params_cmd  params_cmd_u;
+	union params_cmd params_cmd_u;
 	union params_cmd* u = &params_cmd_u;
 	if (argc == 6) {
 		// This is setting the edrx timer
@@ -1661,7 +1704,7 @@ int process_cli_cmd_modem_edrx(const struct shell *shell, size_t argc, char **ar
 					u->edrx.mode, u->edrx.act_type, u->edrx.time_mask);
 			tmo_set_modem(AT_MODEM_EDRX_SET, (union params_cmd*) u, sd);
 		} else {
-			shell_print(shell, "Invalid inputs for edrx timer");
+			shell_error(shell, "Invalid inputs for edrx timer");
 			print_set_modem_edrx_usage(shell);
 		}
 	} else if (argc == 3) {
@@ -1683,37 +1726,38 @@ int process_cli_cmd_modem_edrx_ptw(const struct shell *shell, size_t argc, char 
 			shell_print(shell, "Set eDRX PTW: %d", ptw);
 			fcntl_ptr(sd, AT_MODEM_EDRX_PTW_SET, (const void*)&ptw);
 		} else {
-			shell_print(shell, "Invalid eDRX PTW value");
-			shell_print(shell, "tmo modem <iface> ptw [ptw_value]");
+			shell_error(shell, "Invalid eDRX PTW value");
+			shell_print(shell, "Usage: tmo modem <iface> ptw [ptw_value (0-15)]");
 		}
 	} else if (argc == 3) {
 		fcntl_ptr(sd, AT_MODEM_EDRX_PTW_GET, (const void*)&ptw);
 		shell_print(shell, "PTW: %d", ptw);
 	} else {
-		shell_print(shell, "tmo modem <iface> ptw [ptw_value]");
+		shell_error(shell, "Invalid eDRX PTW value");
+		shell_print(shell, "Usage: tmo modem <iface> ptw [ptw_value (0-15)]");
 	}
 	return 0;
 }
 
 #if IS_ENABLED(CONFIG_BT_SMP)
 SHELL_STATIC_SUBCMD_SET_CREATE(ble_smp_9116_toggles,
-		SHELL_CMD(keyboard,   NULL, "Toggle Keyboard.", toggle_keyboard),
-		SHELL_CMD(confirm,   NULL, "Toggle Confirm.", toggle_confirm),
-		SHELL_CMD(display,   NULL, "Toggle Display.", toggle_display),
+		SHELL_CMD(keyboard, NULL, "Toggle Keyboard", toggle_keyboard),
+		SHELL_CMD(confirm, NULL, "Toggle Confirm", toggle_confirm),
+		SHELL_CMD(display, NULL, "Toggle Display", toggle_display),
 		SHELL_SUBCMD_SET_END
 		);
 
 SHELL_STATIC_SUBCMD_SET_CREATE(ble_smp_9116_respond,
-		SHELL_CMD(key, NULL, "Send Passkey.", send_passkey),
-		SHELL_CMD(confirm, NULL, "Send Confirm.", send_confirm),
-		SHELL_CMD(cancel,   NULL, "Send cancel.", send_cancel),
+		SHELL_CMD(key, NULL, "Send Passkey", send_passkey),
+		SHELL_CMD(confirm, NULL, "Send Confirm", send_confirm),
+		SHELL_CMD(cancel, NULL, "Send cancel", send_cancel),
 		SHELL_SUBCMD_SET_END
 		);
 
 SHELL_STATIC_SUBCMD_SET_CREATE(ble_smp_9116_sub,
 		SHELL_CMD(enable, NULL, "Enable Security Manager Protocol (SMP)", smp_enable),
 		SHELL_CMD(disable, NULL, "Disable Security Manager Protocol (SMP)", smp_disable),
-		SHELL_CMD(callbacks,   NULL, "Show enabled callbacks.", show_enabled),
+		SHELL_CMD(callbacks, NULL, "Show enabled callbacks.", show_enabled),
 		SHELL_CMD(toggle, &ble_smp_9116_toggles, "Toggle callbacks.", NULL),
 		SHELL_CMD(respond, &ble_smp_9116_respond, "Send response.", NULL),
 		SHELL_SUBCMD_SET_END
@@ -1835,7 +1879,7 @@ static int cmd_get_unused_slot(const struct shell *shell, size_t argc, char **ar
 	int slot = get_unused_slot();
 
 	if (slot >= 0) {
-		shell_print(shell, "Unused/inactive slot  is Slot %d", slot);
+		shell_print(shell, "Unused/inactive slot is Slot %d", slot);
 	} else {
 		shell_error(shell, "Unused/inactive slot is undefined");
 	}
@@ -1860,7 +1904,7 @@ static int cmd_erase_slot(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	if (force || slot_is_safe_to_erase(slot)) {
-		int ret =  erase_image_slot(slot);
+		int ret = erase_image_slot(slot);
 		if (ret == 0) {
 			shell_print(shell, "Slot %d was erased", slot);
 		}
@@ -2022,7 +2066,7 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 
 		case DFU_MODEM:
 			{
-				shell_print(shell,"\nStarting the FW update for Murata 1SC");
+				shell_print(shell,"Starting the FW update for Murata 1SC");
 				int status;
 				sprintf(dfu_modem_file.desc, "Murata 1SC Firmware Update");
 				sprintf(dfu_modem_file.lfile, "/tmo/%s.ua", dfu_modem_filename);
@@ -2040,7 +2084,7 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 
 		case DFU_9116W:
 			{
-				shell_print(shell,"\nStarting the FW update for SiLabs RS9116W");
+				shell_print(shell,"Starting the FW update for SiLabs RS9116W");
 				int status;
 				status = dfu_wifi_firmware_upgrade();
 				if (status != 0) {
@@ -2067,17 +2111,16 @@ int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 {
-	int status;
 	uint8_t charging = 0;
 	uint8_t vbus = 0;
-	uint8_t attached = 0;
+	uint8_t attached;
 	uint8_t fault = 0;
+	uint8_t status;
 
 	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
 	if (status != 0) {
 		shell_error(shell, "Charger status command failed");
-	}
-	else {
+	} else {
 		if (!attached) {
 			shell_print(shell, "No battery attached");
 		} else if (!vbus) {
@@ -2100,21 +2143,42 @@ int cmd_charging_status(const struct shell *shell, size_t argc, char **argv)
 int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 {
 	int status;
-	uint32_t millivolts = 0;
 	uint8_t attached = 0;
 	uint8_t charging = 0;
-        uint8_t vbus = 0;
+	uint8_t vbus = 0;
 	uint8_t fault = 0;
+	int32_t val_mv;
+
+	int16_t buf;
+	struct adc_sequence sequence = {
+		.buffer = &buf,
+		/* buffer size in bytes, not number of samples */
+		.buffer_size = sizeof(buf),
+	};
 
 	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
 	if (status != 0) {
 		shell_error(shell, "Charger status command failed");
+		return status;
+	}
+
+	if (!attached) {
+		shell_print(shell, "No battery attached");
 	} else {
-		if (!attached) {
-			shell_print(shell, "No battery attached");
+		adc_sequence_init_dt(&adc_channels[0], &sequence);
+		status = adc_read(adc_channels[0].dev, &sequence);
+		if (status < 0) {
+			shell_error(shell,"Could not read (%d)\n", status);
+			return status;
+		}
+
+		val_mv = (int32_t)buf;
+		status = adc_raw_to_millivolts_dt(&adc_channels[0], &val_mv);
+		/* conversion to mV may not be supported, skip if not */
+		if (status < 0) {
+			shell_error(shell,"Value in mV not available");
 		} else {
-			millivolts = read_battery_voltage();
-			shell_print(shell, "Battery voltage %d.%03dV", millivolts/1000, millivolts%1000);
+			shell_print(shell,"Battery voltage %d.%03dV\n", val_mv/1000, val_mv%1000);
 		}
 	}
 	return status;
@@ -2123,18 +2187,20 @@ int cmd_battery_voltage(const struct shell *shell, size_t argc, char **argv)
 extern uint8_t aio_btn_pushed;
 int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 {
+	int status;
 	uint8_t set_point = 60;
 	uint8_t percent = 100;
 	uint8_t old_percent = 0;
-	uint32_t millivolts = 0;
 	uint8_t attached = 0;
 	uint8_t charging = 0;
-        uint8_t vbus = 0;
-	uint8_t fault= 0;
+	uint8_t vbus = 0;
+	uint8_t fault;
+	int16_t buf;
+	int32_t val_mv;
 
 	if (argc > 2) {
 		shell_error(shell, "Incorrect parameters");
-		shell_print(shell, "usage: tmo battery discharge [set point (optional, default: 60)]");
+		shell_print(shell, "Usage: tmo battery discharge [set point (optional, default: 60)]");
 		return -1;
 	} if (argc == 2) {
 		int val = strtol(argv[1], NULL, 10);
@@ -2147,16 +2213,39 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		}
 	}
 	shell_print(shell, "Discharge setpoint: %d", set_point);
+	
+	struct adc_sequence sequence = {
+		.buffer = &buf,
+		/* buffer size in bytes, not number of samples */
+		.buffer_size = sizeof(buf),
+	};
 
-	get_battery_charging_status(&charging, &vbus, &attached, &fault);
-	if (attached !=  0) {
-		millivolts = read_battery_voltage();
-		millivolts_to_percent(millivolts, &percent);
-		old_percent = percent;
-	} else {
+	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
+	if (status != 0) {
+		shell_error(shell, "Charger status command failed");
+		return status;
+	}
+
+	if (!attached) {
 		shell_error(shell, "Battery not attached, aborting...");
 		return -ENOEXEC;
 	}
+
+	adc_sequence_init_dt(&adc_channels[0], &sequence);
+	status = adc_read(adc_channels[0].dev, &sequence);
+	if (status < 0) {
+		shell_error(shell,"Could not read (%d)\n", status);
+		return status;
+	}
+	val_mv = (int32_t)buf;
+	status = adc_raw_to_millivolts_dt(&adc_channels[0], &val_mv);
+	/* conversion to mV may not be supported, skip if not */
+	if (status < 0) {
+		shell_error(shell,"Value in mV not available");
+		return status;
+	}
+
+	old_percent = percent;
 
 	shell_print(shell, "Battery level is currently %d%%", percent);
 
@@ -2179,15 +2268,31 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	while (percent > set_point) {
-		get_battery_charging_status(&charging, &vbus, &attached, &fault);
-		if (attached !=  0) {
-			millivolts = read_battery_voltage();
-			millivolts_to_percent(millivolts, &percent);
+		status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
+		if (status != 0) {
+			shell_error(shell, "Charger status command failed");
+			return status;
+		}
+		if (attached != 0) {
+			(void)adc_sequence_init_dt(&adc_channels[0], &sequence);
+			status = adc_read(adc_channels[0].dev, &sequence);
+			if (status < 0) {
+				shell_error(shell,"Could not read (%d)\n", status);
+				return status;
+			}
+			val_mv = (int32_t)buf;
+			status = adc_raw_to_millivolts_dt(&adc_channels[0], &val_mv);
+			if (status < 0) {
+				shell_error(shell,"Value in mV not available");
+				return status;
+			}
+			percent = battery_millivolts_to_percent(val_mv);
 		} else {
 			shell_error(shell, "Battery not attached, aborting...");
 			return -ENOEXEC;
 		}
-		if ((abs(old_percent - percent) > 5) && ((percent % 5) == 0)) {
+
+		if ((abs(old_percent - percent) > 5) && (( percent % 5) == 0)) {
 			shell_print(shell, "Battery level is now (%d%%)...", percent);
 			old_percent = percent;
 		}
@@ -2205,7 +2310,6 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 
 	shell_print(shell, "Battery is discharged (%d%%), shutting down...", percent);
 	cmd_pmsysfulloff(shell, 0, NULL);
-
 	return 0;
 }
 
@@ -2213,23 +2317,43 @@ int cmd_battery_percentage(const struct shell *shell, size_t argc, char **argv)
 {
 	int status;
 	uint8_t percent = 0;
-	uint32_t millivolts = 0;
 	uint8_t attached = 0;
 	uint8_t charging = 0;
-        uint8_t vbus = 0;
+	uint8_t vbus = 0;
 	uint8_t fault= 0;
+	int32_t val_mv;
+	int16_t buf;
+	struct adc_sequence sequence = {
+		.buffer = &buf,
+		/* buffer size in bytes, not number of samples */
+		.buffer_size = sizeof(buf),
+	};
 
 	status = get_battery_charging_status(&charging, &vbus, &attached, &fault);
 	if (status != 0) {
 		shell_error(shell, "Charger status command failed");
+		return status;
+	}
+	if (!attached) {
+		shell_print(shell, "No battery attached");
+		return -ENOEXEC;;
+	}
+
+	adc_sequence_init_dt(&adc_channels[0], &sequence);
+	status = adc_read(adc_channels[0].dev, &sequence);
+	if (status < 0) {
+		shell_error(shell,"Could not read (%d)\n", status);
+		return status;
+	}
+
+	val_mv = (int32_t)buf;
+
+	status = adc_raw_to_millivolts_dt(&adc_channels[0], &val_mv);
+	if (status < 0) {
+		shell_error(shell," (value in mV not available)");
 	} else {
-		if (!attached) {
-			shell_print(shell, "No battery attached");
-		} else {
-			millivolts = read_battery_voltage();
-			millivolts_to_percent(millivolts, &percent);
-			shell_print(shell, "Battery level %d percent", percent);
-		}
+		percent = battery_millivolts_to_percent(val_mv);
+		shell_print(shell, "\tBattery level %d percent", percent);
 	}
 	return status;
 }
@@ -2239,7 +2363,7 @@ int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv)
 	if (argc < 3) {
 		shell_error(shell, "Missing required arguments");
 		shell_print(shell, "Usage: tmo udp %s <operation> <socket>>\n"
-				"   operation:w to write,  d to delete dtls credential from modem NVRAM\n"
+				"   operation: w to write, d to delete dtls credential from modem NVRAM\n"
 				"   socket: socket descriptor", argv[0]);
 		return -EINVAL;
 	}
@@ -2251,8 +2375,8 @@ int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv)
 	if (argc < 3) {
 		shell_error(shell, "Missing required arguments");
 		shell_print(shell, "Usage: tmo udp profile <operation> <socket>>\n"
-						"       operation:a to add,  d to delete cert profile from  modem NVRAM\n"
-						"       socket: socket descriptor from - tmo udp secure_create 1 ");
+						"       operation: a to add, d to delete cert profile from modem NVRAM\n"
+						"       socket: socket descriptor from - tmo udp secure_create 1");
 		return -EINVAL;
 	}
 	return tmo_profile_dtls(shell, argv[1], (int) strtol(argv[2], NULL, 10));
@@ -2371,7 +2495,7 @@ int cmd_json_set_iface(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	int idx = strtol(argv[1], NULL, 10);
-	return  set_json_iface_type(idx);
+	return set_json_iface_type(idx);
 }
 
 int cmd_json_transmit_enable(const struct shell *shell, size_t argc, char **argv)
@@ -2559,7 +2683,7 @@ int cmd_tmo_buzzer_vol(const struct shell *shell, int argc, char**argv)
 {
 	if (argc < 2) {
 		shell_error(shell, "Missing required arguments");
-		shell_print(shell, "  tmo buzzer vol <volume_percent>");
+		shell_print(shell, "Usage: tmo buzzer vol <volume_percent>");
 		return 1;
 	}
 	int vol = strtol(argv[1], NULL, 10);
@@ -2583,7 +2707,7 @@ int cmd_tmo_cert_modem_load(const struct shell* shell, int argc, char **argv)
 {
 	bool force = false;
 	if (argc > 2) {
-		shell_print(shell, "  usage: tmo certs modem_load [force]");
+		shell_print(shell, "Usage: tmo certs modem_load [force]");
 	}
 	if (argc == 2) {
 		force = strtol(argv[1], NULL, 10);
@@ -2742,6 +2866,24 @@ static void count_ifaces(struct net_if *iface, void *user_data)
 	num_ifaces++;
 }
 
+void adc_gecko_setup() {
+	int status;
+
+	/* Configure channels individually prior to sampling. */
+	for (size_t i = 0U; i < ARRAY_SIZE(adc_channels); i++) {
+		if (!device_is_ready(adc_channels[i].dev)) {
+			printf("ADC controller device not ready\n");
+			return;
+		}
+
+		status = adc_channel_setup_dt(&adc_channels[i]);
+		if (status < 0) {
+			printf("Could not setup channel #%d (%d)\n", i, status);
+			return;
+		}
+	}
+}
+
 void tmo_shell_main(void)
 {
 	shell = shell_backend_uart_get_ptr();
@@ -2750,26 +2892,33 @@ void tmo_shell_main(void)
 	ext_flash_dev = device_get_binding(FLASH_DEVICE);
 
 	if (!ext_flash_dev) {
-		shell_print(shell, "External flash driver %s was not found!", FLASH_DEVICE);
-		exit(-1);
-	}
-	else {
+		shell_error(shell, "External flash driver %s was not found!", FLASH_DEVICE);
+	} else {
 		shell_print(shell, "External flash driver %s ready!", FLASH_DEVICE);
 	}
 
 	gecko_flash_dev = device_get_binding(GECKO_FLASH_DEVICE);
         if (!gecko_flash_dev) {
-                shell_print(shell, "Gecko flash driver not found");
-        }
-        else {
+                shell_error(shell, "Gecko flash driver not found");
+        } else {
                 shell_print(shell, "Gecko flash driver %s ready!", GECKO_FLASH_DEVICE);
         }
+
+	gecko_adc_dev = device_get_binding(GECKO_ADC_DEVICE);
+	if (!gecko_adc_dev) {
+		shell_error(shell, "Gecko ADC driver not found");
+	} else {
+		shell_print(shell, "Gecko ADC driver %s ready!", GECKO_ADC_DEVICE);
+	}
 
 	// mount the flash file system
 	mountfs();
 
 	cxd5605_init();
-	initADC();
+
+	adc_gecko_setup();
+
+	shell = shell_backend_uart_get_ptr();
 #ifdef CONFIG_WIFI
 	tmo_wifi_connect();
 #endif

@@ -29,11 +29,11 @@
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/socket.h>
 #include <zephyr/drivers/bluetooth/rs9116w.h>
+#include <zephyr/drivers/adc/adc_gecko.h>
 
 #include "tmo_buzzer.h"
 #include "tmo_web_demo.h"
 #include "tmo_ble_demo.h"
-#include "tmo_adc.h"
 #include "tmo_gnss.h"
 #include "tmo_smp.h"
 #include "tmo_shell.h"
@@ -46,8 +46,10 @@
 static inline void strupper(char *p) { while (*p) *p++ &= 0xdf;}
 #define uuid128(...) BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(__VA_ARGS__))
 
+extern const struct adc_dt_spec adc_channels[];
 extern struct bt_conn *get_acl_conn(int i);
 extern int get_active_le_conns();
+extern const struct device *battery_dev;
 
 K_SEM_DEFINE(update_sem, 0, 1);
 
@@ -191,27 +193,64 @@ static ssize_t battery_voltage_get(struct bt_conn *conn,
 				const struct bt_gatt_attr *attr, void *buf,
 				uint16_t len, uint16_t offset)
 {
-	uint8_t percent = 0;
-	uint32_t millivolts = 0;
 	uint8_t battery_attached = 0;
-	uint8_t charging = 0;
 	uint8_t vbus = 0;
+	uint8_t charging = 0;
 	uint8_t fault = 0;
+	uint8_t err;
+	uint8_t percent = 0;
+	int32_t val_mv;
+
+	int16_t buffer;
+	struct adc_sequence sequence = {
+		.buffer = &buffer,
+		/* buffer size in bytes, not number of samples */
+		.buffer_size = sizeof(buffer),
+	};
 
 	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
 
-	/* flush the fault status out by reading again */
-	if (fault) {
-		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	if (battery_attached != 0) {
+		(void)adc_sequence_init_dt(&adc_channels[0], &sequence);
+		err = adc_read(adc_channels[0].dev, &sequence);
+		if (err < 0) {
+			shell_error(shell,"Could not read (%d)\n", err);
+			return err;
+		}
 	}
-	/* there can be 2 of these to flush */
-	if (fault) {
-		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+	
+    /* flush the fault status out by reading again */
+    if (fault) {
+        get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+        if (battery_attached != 0) {
+			(void)adc_sequence_init_dt(&adc_channels[0], &sequence);
+			err = adc_read(adc_channels[0].dev, &sequence);
+			if (err < 0) {
+				shell_error(shell,"Could not read (%d)\n", err);
+				return err;
+			}
+		}
+
+    }
+    /* there can be 2 of these to flush */
+    if (fault) {
+        get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
+      	if (battery_attached != 0) {
+			err = adc_read(adc_channels[0].dev, &sequence);
+			if (err < 0) {
+				shell_error(shell,"Could not read (%d)\n", err);
+				return err;
+			}
+		}
+		val_mv = (int32_t)buf;
+		err = adc_raw_to_millivolts_dt(&adc_channels[0], &val_mv);
+		/* conversion to mV may not be supported, skip if not */
+		if (err < 0)
+			shell_print(shell," (value in mV not available)\n");
+		else
+			percent = battery_millivolts_to_percent(val_mv);
 	}
 
-	millivolts = read_battery_voltage();
-	millivolts_to_percent(millivolts, &percent);
-	
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, (uint8_t*) &percent, 1);
 }
 
@@ -220,10 +259,13 @@ static ssize_t battery_power_source_get(struct bt_conn *conn,
                                 uint16_t len, uint16_t offset)
 {
 	uint8_t power_source;
-	uint8_t charging, vbus, battery_attached, fault;
+	uint8_t battery_attached = 0;
+	uint8_t fault = 0;
+	uint8_t vbus = 0;
+	uint8_t charging = 0;
 
 	get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-	if (vbus) {
+	if (vbus || !battery_attached) {
 		power_source = ON_CHARGER_POWER;
 	} else {
 		power_source = ON_BATTERY_POWER;
@@ -573,7 +615,7 @@ void button_stat_change(const struct device *dev, struct gpio_callback *cb,
 	k_sem_give(&ble_thd_sem);
 }
 #if CONFIG_MODEM
-#include "modem_sms.h"
+#include <zephyr/drivers/modem/sms.h>
 
 static uint64_t get_imei()
 {
@@ -797,9 +839,24 @@ void ble_notif_thread(void *a, void *b, void *c)
 	ARG_UNUSED(a);
 	ARG_UNUSED(b);
 	ARG_UNUSED(c);
-	uint8_t button_last_state = 0;
-	uint8_t battery_last_percent = 0;
 
+	uint8_t battery_last_percent = 0;
+	uint8_t battery_attached = 0;
+	uint8_t vbus = 0;
+	uint8_t charging = 0;
+	uint8_t fault = 0;
+	uint8_t percent = 0;
+	int err;
+	int32_t val_mv=0;
+
+	int16_t buf;
+	struct adc_sequence sequence = {
+		.buffer = &buf,
+		/* buffer size in bytes, not number of samples */
+		.buffer_size = sizeof(buf),
+	};
+
+	uint8_t button_last_state = 0;
 	while (1) {
 		if (!get_active_le_conns()) {
 			k_sem_take(&ble_thd_sem, K_FOREVER);
@@ -843,15 +900,25 @@ void ble_notif_thread(void *a, void *b, void *c)
 			ln_buf_gen();
 			bt_gatt_notify(NULL, &ln_svc.attrs[2], ln_las_buf, sizeof(ln_las_buf));
 		}
-		uint8_t charging, vbus, battery_attached, fault, percent;
-	
+
 		get_battery_charging_status(&charging, &vbus, &battery_attached, &fault);
-		uint32_t millivolts = read_battery_voltage();
-		millivolts_to_percent(millivolts, &percent);
-		if (battery_last_percent != percent) {
-			bt_gatt_notify(NULL, &bas.attrs[1], &percent, sizeof(percent));
+
+		if (battery_attached != 0) {
+			(void)adc_sequence_init_dt(&adc_channels[0], &sequence);
+			err = adc_read(adc_channels[0].dev, &sequence);
+			if (err < 0)
+				shell_error(shell,"Could not read (%d)\n", err);
+
+			val_mv = (int32_t)buf;
+			err = adc_raw_to_millivolts_dt(&adc_channels[0],
+								&val_mv);
+
+			percent = battery_millivolts_to_percent(val_mv);
+
+			if (battery_last_percent != percent)
+				bt_gatt_notify(NULL, &bas.attrs[1], &percent, sizeof(percent));
+			battery_last_percent = percent;
 		}
-		battery_last_percent = percent;
 	}
 }
 

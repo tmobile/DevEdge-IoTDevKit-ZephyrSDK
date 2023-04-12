@@ -92,3 +92,8 @@ int get_battery_charging_status(uint8_t *charging, uint8_t *vbus, uint8_t *attac
 
 	return status;
 }
+
+uint8_t battery_millivolts_to_percent(uint32_t millivolts) {
+	float curBv = get_remaining_capacity((float) millivolts / 1000);
+	return (uint8_t) (curBv + 0.5);
+} 	// Calculate input voltage in mV

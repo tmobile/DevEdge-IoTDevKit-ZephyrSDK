@@ -36,4 +36,5 @@ float get_remaining_capacity(float battery_voltage);
 bool is_battery_charging(void);
 int get_battery_charging_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t *fault);
 
+uint8_t battery_millivolts_to_percent(uint32_t millivolts);
 #endif
