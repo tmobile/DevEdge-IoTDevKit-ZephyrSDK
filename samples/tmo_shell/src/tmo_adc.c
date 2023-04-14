@@ -83,28 +83,6 @@ void initADC(void)
 	LOG_INF("HWID = %d\n", hwid);
 }
 
-/**
- * @brief  Exponential filter for battery level
- */
-static void apply_filter(float *bv)
-{
-	static float s_filtered_capacity = -1;
-	static bool s_battery_is_charging = false;
-	bool battery_is_charging;
-
-	// If there has been a switch between charger and battery, reset the filter
-	battery_is_charging = is_battery_charging();
-	if (s_battery_is_charging != battery_is_charging) {
-		s_battery_is_charging = battery_is_charging;
-		s_filtered_capacity = -1;
-	}
-
-	if (s_filtered_capacity < 0) {
-		s_filtered_capacity = *bv;
-	}
-	*bv = s_filtered_capacity = s_filtered_capacity * 0.95 + (*bv) * 0.05;
-}
-
 /*
  * @brief  This function writes the amount of battery charge remaining
  *         (to the nearest 1%) in bv.
@@ -112,7 +90,6 @@ static void apply_filter(float *bv)
  */
 bool millivolts_to_percent(uint32_t millivolts, uint8_t *percent) {
 	float curBv = get_remaining_capacity((float) millivolts / 1000);
-	apply_filter(&curBv);
 	*percent = (uint8_t) (curBv + 0.5);
 	return true;
 }
