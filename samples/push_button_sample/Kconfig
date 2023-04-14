@@ -3,3 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 source "Kconfig.zephyr"
+
+mainmenu "Gecko Pushbutton"
+
+config PUSHBUTTON_ADDITIONAL_PULL_UP
+     bool "Pushbutton additional pull-up resistor"
+     default true
+     help
+        The additional conductance afforded by the Gecko GPIO pull-up resistor
+        reduces the RC time constant of the pushbutton debounce filter circuit,
+        making switch bounce more likely.
