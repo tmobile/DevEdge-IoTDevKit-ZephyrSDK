@@ -58,7 +58,7 @@ void user_push_button_intr_callback(const struct device *port, struct gpio_callb
 	push_button_isr_count++;
 	if (print_edges) {
 		printk("\r%s interrupt (%d): %s edge%s\n", port->name, push_button_isr_count,
-		       button_state.current ? " rising" : "falling",
+		       button_state.current ? "falling" : "rising",
 		       button_state.current == button_state.previous ? " (bounce detected)" : "");
 	}
 	button_state.previous = button_state.current;
@@ -89,7 +89,11 @@ static void setup(void)
 		return;
 	}
 
-	ret = gpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP | GPIO_INT_EDGE_BOTH);
+	ret = gpio_pin_configure_dt(&button, GPIO_INPUT
+#if defined(CONFIG_PUSHBUTTON_ADDITIONAL_PULL_UP) && (CONFIG_PUSHBUTTON_ADDITIONAL_PULL_UP)
+						     | GPIO_PULL_UP
+#endif
+	);
 	if (ret != 0) {
 		printk("Error %d: failed to configure %s pin %d\n", ret, button.port->name,
 		       button.pin);
@@ -165,12 +169,11 @@ static void phase2()
 	/* Enable the interrupt edge printing mechanism */
 	print_edges = true;
 
-	/* Enable Energy Mode 2 (EM2) -- Deep Sleep Mode */
-	pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
-
 	/* Maintain sleep */
 	while (true) {
 		puts("Entering EM2 sleep...\n");
+		/* Enable Energy Mode 2 (EM2) -- Deep Sleep Mode */
+		pm_state_force(0u, &(struct pm_state_info){PM_STATE_SUSPEND_TO_IDLE, 0, 0});
 		k_msleep(1);
 		puts("Awake from EM2 sleep...");
 	}
