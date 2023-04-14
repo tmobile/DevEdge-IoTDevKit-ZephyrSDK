@@ -8,10 +8,11 @@
 #define DFU_MURATA_1SC_H
 
 #include <stdint.h>
-#include "tmo_dfu_download.h"
+
+#include "dfu_common.h"
 
 #define DFU_MODEM_FW_VER_SIZE 32
-#define UA_HEADER_SIZE 256
+#define UA_HEADER_SIZE	      256
 
 uint32_t murata_1sc_crc32_update(uint32_t crc32, const uint8_t *data, size_t len);
 uint32_t murata_1sc_crc32_finish(uint32_t crc32, size_t len);

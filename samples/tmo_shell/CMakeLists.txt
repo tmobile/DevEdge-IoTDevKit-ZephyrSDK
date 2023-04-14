@@ -11,11 +11,9 @@ project(tmo_shell)
 
 zephyr_include_directories(${BOARD_DIR})
 
-target_include_directories(app PRIVATE ${ZEPHYR_BASE}/subsys/ PRIVATE ${ZEPHYR_BASE}/drivers/modem/ PRIVATE ${ZEPHYR_BASE}/drivers/wifi/rs9116w)
+target_include_directories(app PRIVATE ${ZEPHYR_BASE}/subsys/ PRIVATE ${ZEPHYR_BASE}/drivers/modem/)
 target_sources(app PRIVATE src/tmo_shell.c)
 target_sources(app PRIVATE src/tmo_buzzer.c)
-target_sources(app PRIVATE src/dfu_rs9116w.c)
-target_sources(app PRIVATE src/dfu_murata_1sc.c)
 target_sources(app PRIVATE src/tmo_shell_main.c)
 target_sources(app PRIVATE src/tmo_web_demo.c)
 target_sources(app PRIVATE src/tmo_http_request.c)
@@ -86,7 +84,6 @@ if(DEFINED CONFIG_TMO_SHELL_BUILD_EK)
 	add_subdirectory(src/ek18)
 endif()
 
-target_include_directories(app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../dfu_gecko)
 
 # zephyr: base upstream version tag used for tmo-main
 if(DEFINED ENV{ZEPHYR_BASE_TAG})

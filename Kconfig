@@ -1,2 +1,2 @@
 
-rsource "dfu_gecko/Kconfig.dfu_gecko"
+rsource "libs/dfu_gecko/Kconfig.dfu_gecko"
