@@ -13,7 +13,6 @@
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/socket.h>
 #if CONFIG_MODEM
-#include "modem_sms.h"
 #include <zephyr/drivers/modem/murata-1sc.h>
 #endif
 
