@@ -1,0 +1,15 @@
+# Copyright (c) 2022 T-Mobile USA, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+mainmenu "Button Sample DevEdge board V04 Production"
+
+config BUTTON_DEBOUNCE_TIMEOUT_MS
+    int "Debounce filter timeout for button press in millisec"
+    range 0 100
+    default 50
+    help
+        Set this to configure timer value in order to debounce button press
+        and unpress.
+
+source "Kconfig.zephyr"
