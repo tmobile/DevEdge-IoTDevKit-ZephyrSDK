@@ -879,9 +879,8 @@ static struct bt_conn_cb conn_callbacks = {
 	.connected = ble_connected,
 };
 
-static int tmo_ble_demo_init(const struct device *unused)
+static int tmo_ble_demo_init()
 {
-	ARG_UNUSED(unused);
 	int err;
 
 	err = bt_enable(NULL);

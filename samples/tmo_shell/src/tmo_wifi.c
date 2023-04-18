@@ -485,10 +485,8 @@ int tmo_wifi_connect()
 	return ret;
 }
 
-static int tmo_wifi_shell_init(const struct device *unused)
+static int tmo_wifi_shell_init()
 {
-	ARG_UNUSED(unused);
-
 	context.shell = NULL;
 	context.all = 0U;
 	scan_result = 0U;
