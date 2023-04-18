@@ -11,6 +11,7 @@
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/shell/shell_uart.h>
+#include "tmo_gnss.h"
 
 #define I2C_0 DT_NODE_FULL_NAME(DT_NODELABEL(i2c0))
 #define I2C_1 DT_NODE_FULL_NAME(DT_NODELABEL(i2c1))
