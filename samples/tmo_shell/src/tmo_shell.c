@@ -1432,9 +1432,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 #endif /* CONFIG_MODEM */
 	SHELL_CMD(send, NULL, "<socket> <payload>", udp_send),
 	SHELL_CMD(sendb, NULL, "<socket> <size>", udp_sendb),
-#if CONFIG_MODEM
+#if CONFIG_MODEM && CONFIG_MODEM_SMS
 	SHELL_CMD(sendsms, NULL, "<socket> <phone number> <message>", sock_sendsms),
-#endif /* CONFIG_MODEM */
+#endif /* CONFIG_MODEM && CONFIG_MODEM_SMS */
 	SHELL_CMD(sendto, NULL, "<socket> <ip> <port> <payload>", sock_sendto),
 	SHELL_CMD(xfersz, NULL, "<size>", sock_mxfragment), SHELL_SUBCMD_SET_END);
 
