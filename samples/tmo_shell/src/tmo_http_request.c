@@ -303,11 +303,6 @@ int create_http_socket(bool tls, char* host, struct addrinfo *res, struct net_if
 #endif
 	}
 #endif
-	struct timeval timeo_optval = {
-		.tv_sec = 20,
-		.tv_usec = 0,
-	};
-	zsock_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeo_optval, sizeof(timeo_optval));
 	return sock;
 }
 #else
@@ -317,11 +312,6 @@ int create_http_socket(bool tls, char* host, struct addrinfo *res, struct net_if
 	LOG_WRN("Using mocked socket for download.");
 	int sock = -1;
 	sock = http_fail_unit_test_socket_create();
-	struct timeval timeo_optval = {
-		.tv_sec = 20,
-		.tv_usec = 0,
-	};
-	zsock_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeo_optval, sizeof(timeo_optval));
 	return sock;
 }
 #endif
@@ -395,6 +385,7 @@ int tmo_http_download(int devid, char url[], char filename[], char *auth_key)
 	req.response = response_cb_download;
 	req.recv_buf = mxfer_buf;
 	req.recv_buf_len = 4096;
+	req.packet_timeout = 10000;
 
 	ret = tmo_offload_init(devid);
 	if (ret != 0) {
