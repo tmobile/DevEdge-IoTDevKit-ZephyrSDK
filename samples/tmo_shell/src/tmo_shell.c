@@ -178,7 +178,11 @@ int tcp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 	}
 	int sd = zsock_socket_ext(family, SOCK_STREAM, IPPROTO_TCP, iface);
 	if (sd == -1) {
-		shell_error(shell, "Socket creation failed, errno = %d", errno);
+		if (errno == ENOMEM) {
+			shell_error(shell, "No sockets available, errno = %d", errno);
+		} else {
+			shell_error(shell, "Socket creation failed, errno = %d", errno);
+		}
 		return 0;
 	}
 	shell_print(shell, "Created socket %d", sd);
@@ -224,7 +228,11 @@ int tcp_create_tls_core(const struct shell *shell, size_t argc, char **argv, int
 	}
 	int sd = zsock_socket_ext(family, SOCK_STREAM, IPPROTO_TLS_1_2, iface);
 	if (sd == -1) {
-		shell_error(shell, "Socket creation failed, errno = %d", errno);
+		if (errno == ENOMEM) {
+			shell_error(shell, "No sockets available, errno = %d", errno);
+		} else {
+			shell_error(shell, "Socket creation failed, errno = %d", errno);
+		}
 		return 0;
 	}
 
@@ -302,7 +310,11 @@ int udp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 	}
 	int sd = zsock_socket_ext(family, SOCK_DGRAM, IPPROTO_UDP, iface);
 	if (sd == -1) {
-		shell_error(shell, "Socket creation failed, errno = %d", errno);
+		if (errno == ENOMEM) {
+			shell_error(shell, "No sockets available, errno = %d", errno);
+		} else {
+			shell_error(shell, "Socket creation failed, errno = %d", errno);
+		}
 		return 0;
 	}
 	shell_print(shell, "Created socket %d", sd);
@@ -374,7 +386,11 @@ int udp_create_dtls_core(const struct shell *shell, size_t argc, char **argv, in
 	}
 	int sd = zsock_socket_ext(family, SOCK_DGRAM, IPPROTO_DTLS_1_2, iface);
 	if (sd == -1) {
-		shell_error(shell, "Socket creation failed, errno = %d", errno);
+		if (errno == ENOMEM) {
+			shell_error(shell, "No sockets available, errno = %d", errno);
+		} else {
+			shell_error(shell, "Socket creation failed, errno = %d", errno);
+		}
 		return 0;
 	}
 	shell_print(shell, "Created socket %d", sd);
