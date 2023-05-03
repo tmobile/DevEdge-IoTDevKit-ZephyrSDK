@@ -572,7 +572,13 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 	int ret;
 	char *host;
 	struct sockaddr target;
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	char *port_st = argv[3];
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -696,7 +702,13 @@ int sock_bind(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -729,7 +741,13 @@ int sock_send(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -761,7 +779,13 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -850,7 +874,13 @@ int sock_sendb(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -945,7 +975,13 @@ int sock_recvb(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -1000,6 +1036,11 @@ int sock_rcv(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	int sd = (int)strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -1045,6 +1086,11 @@ int sock_rcvfrom(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 	int sd = (int)strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -1099,7 +1145,13 @@ int sock_close(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -1136,7 +1188,13 @@ int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
@@ -1168,9 +1226,19 @@ int sock_recvsms(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
+	errno = 0;
 	int sd = strtol(argv[1], NULL, 10);
-
+	if (errno != 0) {
+		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int wait = strtol(argv[2], NULL, 10);
+	if (errno != 0 && errno != ERANGE) {
+		shell_error(shell, "Timeout %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return errno;
+	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
 		if (socks[sock_idx].sd == sd && socks[sock_idx].flags & BIT(sock_open)) {
