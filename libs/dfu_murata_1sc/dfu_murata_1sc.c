@@ -85,7 +85,7 @@ typedef struct modem_app_cb_s {
 modem_app_cb_t modem_app_cb;
 
 /* FW send variable, buffer */
-static uint32_t chunk_cnt = 0u, chunk_check = 0u, offset = 0u, fw_image_size = 0u, remainder = 0u;
+static uint32_t chunk_check = 0u, offset = 0u, fw_image_size = 0u, remainder = 0u;
 static uint8_t recv_buff_hdr[UA_HEADER_SIZE] = {0};
 static uint8_t recv_buff_1k[1024] = {0};
 
@@ -430,6 +430,7 @@ int dfu_send_ioctl(int cmd, int numofbytes)
 static int32_t dfu_modem_write_image(const struct dfu_file_t *dfu_file)
 {
 	int32_t status = 0;
+	uint32_t chunk_cnt = 0u;
 
 	printf("\nThis procedure can take up to 10 minutes. System will reboot when done\n");
 	printf("DO NOT REBOOT OR POWER OFF DURING THIS PROCEDURE\n");
