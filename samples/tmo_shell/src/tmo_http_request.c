@@ -486,7 +486,12 @@ int tmo_http_download(int devid, char url[], char filename[], char *auth_key)
 			headers[0] = range_header;
 			req.header_fields = (const char**)headers;
 			// req.header_fields
+			int last_rcvd_cnt = http_total_received;
 			http_client_req(sock, &req, HTTP_CLIENT_REQ_TIMEOUT, &file);
+			/* Reset count if new data has been transfered */
+			if (last_rcvd_cnt < http_total_received) {
+				fail_count = 0;
+			}
 		}
 		if (http_total_received == http_total_written) {
 			printf("\nReceived:%d, Wrote: %d\n", http_total_received, http_total_written);
@@ -514,7 +519,12 @@ int tmo_http_download(int devid, char url[], char filename[], char *auth_key)
 			headers[0] = range_header;
 			req.header_fields = (const char**)headers;
 			// req.header_fields
+			int last_rcvd_cnt = http_total_received;
 			http_client_req(sock, &req, HTTP_CLIENT_REQ_TIMEOUT, &file);
+			/* Reset count if new data has been transfered */
+			if (last_rcvd_cnt < http_total_received) {
+				fail_count = 0;
+			}
 		}
 		printf("\n\nReceived:%d\n", http_total_received);
 	}
