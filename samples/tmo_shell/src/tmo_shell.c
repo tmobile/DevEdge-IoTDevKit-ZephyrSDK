@@ -1677,8 +1677,47 @@ int cmd_gnss_version(const struct shell *shell, size_t argc, char **argv)
 
 	ret = gnss_version();
 	if (ret) {
-		printf("%s:%d - Error reading GNSS version (%d)\n", __FUNCTION__, __LINE__, ret);
+		shell_error(shell, "%s:%d - Error reading GNSS version (%d)\n", __FUNCTION__, __LINE__, ret);
 		return 1;
+	}
+
+	return 0;
+}
+
+int cmd_gnss_start_cold(const struct shell *shell, size_t argc, char **argv)
+{
+	int ret;
+
+	ret = gnss_cold_start();
+	if (ret) {
+		shell_error(shell, "%s:%d - Error reading GNSS version (%d)\n", __FUNCTION__, __LINE__, ret);
+		return EIO;
+	}
+
+	return 0;
+}
+
+int cmd_gnss_start_warm(const struct shell *shell, size_t argc, char **argv)
+{
+	int ret;
+
+	ret = gnss_warm_start();
+	if (ret) {
+		shell_error(shell, "%s:%d - Error reading GNSS version (%d)\n", __FUNCTION__, __LINE__, ret);
+		return EIO;
+	}
+
+	return 0;
+}
+
+int cmd_gnss_start_hot(const struct shell *shell, size_t argc, char **argv)
+{
+	int ret;
+
+	ret = gnss_hot_start();
+	if (ret) {
+		shell_error(shell, "%s:%d - Error reading GNSS version (%d)\n", __FUNCTION__, __LINE__, ret);
+		return EIO;
 	}
 
 	return 0;
@@ -2755,6 +2794,14 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_file_sub, SHELL_CMD(cp, NULL, "Copy a file", 
 			       SHELL_CMD(sha1, NULL, "Compute a file SHA1", cmd_sha1),
 			       SHELL_SUBCMD_SET_END);
 
+SHELL_STATIC_SUBCMD_SET_CREATE(tmo_gnss_sub,
+			       SHELL_CMD(location, NULL, "Get GNSS latitude and longitude", cmd_gnss),
+			       SHELL_CMD(start_cold, NULL, "Perform a cold start", cmd_gnss_start_cold),
+			       SHELL_CMD(start_hot, NULL, "Perform a hot start", cmd_gnss_start_hot),
+			       SHELL_CMD(start_warm, NULL, "Perform a warm start", cmd_gnss_start_warm),
+			       SHELL_CMD(version, NULL, "Get GNSS chip version", cmd_gnss_version),
+			       SHELL_SUBCMD_SET_END);
+
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	sub_tmo, SHELL_CMD(battery, &tmo_battery_sub, "Battery and charger status", NULL),
 	SHELL_CMD(ble, &tmo_ble_sub, "BLE test commands", NULL),
@@ -2768,7 +2815,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 	SHELL_CMD(dfu, &tmo_dfu_sub, "Device FW updates", NULL),
 	SHELL_CMD(dns, NULL, "Perform dns lookup", cmd_dnslookup),
 	SHELL_CMD(file, &tmo_file_sub, "File commands", NULL),
-	SHELL_CMD(gnssversion, NULL, "Get GNSS chip version", cmd_gnss_version),
+	SHELL_CMD(gnss, &tmo_gnss_sub, "GNSS commands", NULL),
 	SHELL_CMD(http, NULL, "Get http URL", cmd_http),
 	SHELL_CMD(hwid, NULL, "Read the HWID divider voltage", cmd_hwid),
 	SHELL_CMD(ifaces, NULL, "List network interfaces", cmd_list_ifaces),
@@ -2776,7 +2823,6 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 #if CONFIG_TMO_SHELL_BUILD_EK
 	SHELL_CMD(kermit, NULL, "Embedded kermit", cmd_ekermit),
 #endif
-	SHELL_CMD(location, NULL, "Get latitude and longitude", cmd_gnss),
 #if CONFIG_MODEM
 	SHELL_CMD(modem, NULL, "Modem status and control", &cmd_modem),
 #endif
