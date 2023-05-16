@@ -115,12 +115,15 @@ void pmic_state_print(const struct device *dev)
 	print_pmic_status(charging, vbus, attached, fault, status);
 }
 
+struct act81461_int_cb pmic_charge_cb = {
+	cb = pmic_state_print
+};
 
 static int fuel_guage_init_state_print(const struct device *unused)
 {
 	ARG_UNUSED(unused);
 
-	act81461_charger_int_cb_set(alpc, pmic_state_print);
+	act81461_charger_int_cb_register(alpc, &pmic_charge_cb);
 
 	return 0;
 }
