@@ -1191,3 +1191,24 @@ int cmd_ble_conn_rssi(const struct shell *shell, size_t argc, char** argv)
 	}
 	return 0;
 }
+
+int cmd_ble_mac(const struct shell *shell, size_t argc, char** argv)
+{
+	char mac_addr_buf[sizeof("xx:xx:xx:xx:xx:xx")];
+	uint8_t mac_addr[6];
+	int ret;
+
+	ret = bt_get_mac(mac_addr);
+
+	if (ret) {
+		shell_error(shell, "Failed to read mac address (%d)", ret);
+		return -EIO;
+	}
+
+	sprintf(mac_addr_buf, "%02x:%02x:%02x:%02x:%02x:%02x", mac_addr[0], mac_addr[1],
+				mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+
+	shell_print(shell, "BLE Mac Address: %s", mac_addr_buf);
+
+	return 0;
+}
