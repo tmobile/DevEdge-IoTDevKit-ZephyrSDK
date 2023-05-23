@@ -2713,6 +2713,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(tmo_ble_sub,
 #if IS_ENABLED(CONFIG_BT_PERIPHERAL)
 			       SHELL_CMD(adv, &ble_adv_sub, "BLE advertisement test controls",
 					 NULL),
+				   SHELL_CMD(mac, NULL, "BLE MAC read", cmd_ble_mac),
 			       SHELL_CMD(rssi, NULL, "BLE peripheral RSSI read", cmd_ble_conn_rssi),
 #endif
 			       SHELL_SUBCMD_SET_END);

@@ -20,5 +20,6 @@ int cmd_ble_adv_ebeacon(const struct shell *shell, size_t argc, char **argv);
 int cmd_ble_adv_ibeacon(const struct shell *shell, size_t argc, char **argv);
 int cmd_ble_adv_conn(const struct shell *shell, size_t argc, char **argv);
 int cmd_ble_conn_rssi(const struct shell *shell, size_t argc, char **argv);
+int cmd_ble_mac(const struct shell *shell, size_t argc, char **argv);
 
 #endif
