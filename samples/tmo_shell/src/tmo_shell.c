@@ -106,7 +106,7 @@ extern int ac_test();
 
 const struct shell *shell = NULL;
 
-#define READ_4K	  4096
+#define READ_4K   4096
 #define XFER_SIZE 5000
 uint8_t mxfer_buf[XFER_SIZE + 1];
 int max_fragment = 1000;
@@ -128,6 +128,32 @@ struct sock_rec_s socks[MAX_SOCK_REC] = {0};
 int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv);
 int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv);
 #endif
+
+static long tmo_strtol(const char *nptr)
+{
+	/* Clear errno before hand to make sure we detect overflow, strtol does not clear errno
+	 * internally */
+	errno = 0;
+	/* Argument check */
+	if (NULL == nptr) {
+		errno = EINVAL;
+		return 0;
+	}
+	/* For TMO sockets purposes, all input strings would be non-alphanumeric strings, hence set
+	 * base as decimal and call the real strtol function */
+	char *endptr;
+	long sd = strtol(nptr, &endptr, 10);
+	if ('\0' == *endptr) {
+		/* In this case, all characters of input string are valid integers and strtol
+		 * converts it correctly */
+		return sd;
+	}
+
+	/* In this case, the input string is alphanumeric, strtol will convert the possible
+	 * integer part and return a valid value. We set errno appropriately here and return 0 */
+	errno = EINVAL;
+	return 0;
+}
 
 int tmo_set_modem(enum murata_1sc_io_ctl cmd, union params_cmd *params, int sd)
 {
@@ -164,7 +190,12 @@ int tcp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 		shell_help(shell);
 		return -EINVAL;
 	}
-	int idx = strtol(argv[1], NULL, 10);
+	int idx = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 
 	if (idx > num_ifaces) {
 		shell_error(shell, "Excessive interface number passed");
@@ -220,7 +251,12 @@ int tcp_create_tls_core(const struct shell *shell, size_t argc, char **argv, int
 		return -EINVAL;
 	}
 
-	int idx = strtol(argv[1], NULL, 10);
+	int idx = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	struct net_if *iface = net_if_get_by_index(idx);
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", idx);
@@ -296,7 +332,12 @@ int udp_create_core(const struct shell *shell, size_t argc, char **argv, int fam
 		shell_help(shell);
 		return -EINVAL;
 	}
-	int idx = strtol(argv[1], NULL, 10);
+	int idx = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 
 	if (idx > num_ifaces) {
 		shell_error(shell, "Excessive interface number passed");
@@ -378,7 +419,12 @@ int udp_create_dtls_core(const struct shell *shell, size_t argc, char **argv, in
 		}
 	}
 
-	int idx = strtol(argv[1], NULL, 10);
+	int idx = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	struct net_if *iface = net_if_get_by_index(idx);
 	if (iface == NULL) {
 		shell_error(shell, "Interface %p not found", iface);
@@ -572,12 +618,11 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 	int ret;
 	char *host;
 	struct sockaddr target;
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	char *port_st = argv[3];
 	int sock_idx;
@@ -670,7 +715,12 @@ int sock_connect(const struct shell *shell, size_t argc, char **argv)
 				    (ai_family == AF_INET ? "IPV6" : "IPV4"));
 			return -EINVAL;
 		}
-		uint16_t port = (uint16_t)strtol(port_st, NULL, 10);
+		uint16_t port = (uint16_t)tmo_strtol(port_st);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", port_st,
+				    errno, strerror(errno));
+			return -errno;
+		}
 		if (port) {
 			if (target.sa_family == AF_INET) {
 				net_sin(&target)->sin_port = htons(port);
@@ -702,12 +752,11 @@ int sock_bind(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -722,7 +771,12 @@ int sock_bind(const struct shell *shell, size_t argc, char **argv)
 	struct sockaddr_in target;
 	net_addr_pton(AF_INET, argv[2], &target.sin_addr);
 	target.sin_family = AF_INET;
-	uint16_t port = (uint16_t)strtol(argv[3], NULL, 10);
+	uint16_t port = (uint16_t)tmo_strtol(argv[3]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[3], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	target.sin_port = htons(port);
 	int cstat = zsock_bind(sd, (struct sockaddr *)&target, sizeof(target));
 	if (cstat == -1) {
@@ -741,12 +795,11 @@ int sock_send(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -779,12 +832,11 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -808,7 +860,12 @@ int sock_sendto(const struct shell *shell, size_t argc, char **argv)
 				    (ai_family == AF_INET ? "IPV6" : "IPV4"));
 			return -EINVAL;
 		}
-		uint16_t port = (uint16_t)strtol(port_st, NULL, 10);
+		uint16_t port = (uint16_t)tmo_strtol(port_st);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", port_st,
+				    errno, strerror(errno));
+			return -errno;
+		}
 		if (ai_family == AF_INET) {
 			net_sin(&target)->sin_family = AF_INET;
 			net_sin(&target)->sin_port = htons(port);
@@ -874,12 +931,11 @@ int sock_sendb(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -896,7 +952,12 @@ int sock_sendb(const struct shell *shell, size_t argc, char **argv)
 			   (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls))) ? "UDP"
 										      : "TCP");
 	}
-	int sendsize = strtol(argv[2], NULL, 10);
+	int sendsize = tmo_strtol(argv[2]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	sendsize = MIN(sendsize, XFER_SIZE);
 
 	gen_payload(mxfer_buf, sendsize);
@@ -924,7 +985,12 @@ int sock_sendb(const struct shell *shell, size_t argc, char **argv)
 int sock_mxfragment(const struct shell *shell, size_t argc, char **argv)
 {
 	if (argc > 1) {
-		max_fragment = MAX(1, MIN(1500, strtol(argv[1], NULL, 10)));
+		max_fragment = MAX(1, MIN(1500, tmo_strtol(argv[1])));
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1],
+				    errno, strerror(errno));
+			return -errno;
+		}
 	}
 	shell_print(shell, "Max xfer fragment size set to %d bytes", max_fragment);
 	return 0;
@@ -975,12 +1041,11 @@ int sock_recvb(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -997,7 +1062,12 @@ int sock_recvb(const struct shell *shell, size_t argc, char **argv)
 			   (socks[sock_idx].flags & (BIT(sock_udp) | BIT(sock_dtls))) ? "UDP"
 										      : "TCP");
 	}
-	int recvsize = strtol(argv[2], NULL, 10);
+	int recvsize = tmo_strtol(argv[2]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	recvsize = MIN(recvsize, XFER_SIZE);
 
 	memset(mxfer_buf, 0, recvsize + 1);
@@ -1035,11 +1105,11 @@ int sock_rcv(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
-	int sd = (int)strtol(argv[1], NULL, 10);
+	int sd = (int)tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -1085,11 +1155,11 @@ int sock_rcvfrom(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
-	int sd = (int)strtol(argv[1], NULL, 10);
+	int sd = (int)tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -1145,12 +1215,11 @@ int sock_close(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -1188,12 +1257,11 @@ int sock_sendsms(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -1226,18 +1294,17 @@ int sock_recvsms(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	errno = 0;
-	int sd = strtol(argv[1], NULL, 10);
+	int sd = tmo_strtol(argv[1]);
 	if (errno != 0) {
-		shell_error(shell, "Socket %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
-	int wait = strtol(argv[2], NULL, 10);
+	int wait = tmo_strtol(argv[2]);
 	if (errno != 0 && errno != ERANGE) {
-		shell_error(shell, "Timeout %s is invalid, errno = %d; %s", argv[1], errno,
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2], errno,
 			    strerror(errno));
-		return errno;
+		return -errno;
 	}
 	int sock_idx;
 	for (sock_idx = 0; sock_idx < MAX_SOCK_REC; sock_idx++) {
@@ -1343,7 +1410,12 @@ int cmd_modem(const struct shell *shell, size_t argc, char **argv)
 		shell_help_modem(shell);
 		return -EINVAL;
 	}
-	int idx = strtol(argv[1], NULL, 10);
+	int idx = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	struct net_if *iface = net_if_get_by_index(idx);
 	if (iface == NULL) {
 		shell_error(shell, "Interface %d not found", idx);
@@ -1551,7 +1623,12 @@ int cmd_dnslookup(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	uint8_t devid = strtol(argv[1], NULL, 10);
+	uint8_t devid = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	int ret = tmo_offload_init(devid);
 	if (ret != 0) {
 		shell_error(shell, "Could not init device");
@@ -1618,7 +1695,12 @@ tls_credential_add(CA_CERTIFICATE_TAG, TLS_CREDENTIAL_CA_CERTIFICATE,
 digicert_ca, sizeof(digicert_ca));
 #endif
 */
-	int devid = strtol(argv[1], NULL, 10);
+	int devid = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	ret = tmo_http_download(devid, argv[2], (argc == 4) ? argv[3] : NULL, NULL);
 	if (ret < 0) {
 		shell_error(shell, "tmo_http_download returned %d", ret);
@@ -1651,7 +1733,13 @@ int cmd_sntp(const struct shell *shell, size_t argc, char **argv)
 	int status = -1;
 
 	for (int i = 0; i < 3; i++) {
-		status = tmo_update_time(shell, argv[2], strtol(argv[1], NULL, 10));
+		int iface_idx = tmo_strtol(argv[1]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1],
+				    errno, strerror(errno));
+			return -errno;
+		}
+		status = tmo_update_time(shell, argv[2], iface_idx);
 		if (!status || errno != -EAGAIN) {
 			return status;
 		}
@@ -1706,11 +1794,36 @@ int process_cli_cmd_modem_psm(const struct shell *shell, size_t argc, char **arg
 	union params_cmd *u = &params_cmd_u;
 	if (argc == 8) {
 		// This is setting the PSM timer
-		int mode = strtol(argv[3], NULL, 10);
-		int t3412_mul = strtol(argv[4], NULL, 10);
-		int t3412 = strtol(argv[5], NULL, 10);
-		int t3324_mul = strtol(argv[6], NULL, 10);
-		int t3324 = strtol(argv[7], NULL, 10);
+		int mode = tmo_strtol(argv[3]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[3],
+				    errno, strerror(errno));
+			return -errno;
+		}
+		int t3412_mul = tmo_strtol(argv[4]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[4],
+				    errno, strerror(errno));
+			return -errno;
+		}
+		int t3412 = tmo_strtol(argv[5]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[5],
+				    errno, strerror(errno));
+			return -errno;
+		}
+		int t3324_mul = tmo_strtol(argv[6]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[6],
+				    errno, strerror(errno));
+			return -errno;
+		}
+		int t3324 = tmo_strtol(argv[7]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[7],
+				    errno, strerror(errno));
+			return -errno;
+		}
 		if ((mode >= 0 && mode <= 1) && (t3412_mul >= 0 && t3412_mul <= 7) &&
 		    ((t3324_mul >= 0 && t3324_mul <= 2) || t3324_mul == 7) &&
 		    (t3412 >= 0 && t3412 <= 31) && (t3324 >= 0 && t3324 <= 31)) {
@@ -1744,9 +1857,24 @@ int process_cli_cmd_modem_edrx(const struct shell *shell, size_t argc, char **ar
 	union params_cmd *u = &params_cmd_u;
 	if (argc == 6) {
 		// This is setting the edrx timer
-		u->edrx.mode = strtol(argv[3], NULL, 10);
-		u->edrx.act_type = strtol(argv[4], NULL, 10);
-		u->edrx.time_mask = strtol(argv[5], NULL, 10);
+		u->edrx.mode = tmo_strtol(argv[3]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[3],
+				    errno, strerror(errno));
+			return -errno;
+		}
+		u->edrx.act_type = tmo_strtol(argv[4]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[4],
+				    errno, strerror(errno));
+			return -errno;
+		}
+		u->edrx.time_mask = tmo_strtol(argv[5]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[5],
+				    errno, strerror(errno));
+			return -errno;
+		}
 		if ((u->edrx.mode >= 0 && u->edrx.mode <= 2) &&
 		    (u->edrx.act_type >= 1 && u->edrx.act_type <= 5) &&
 		    ((u->edrx.time_mask >= 1 && u->edrx.time_mask <= 15))) {
@@ -1771,7 +1899,12 @@ int process_cli_cmd_modem_edrx_ptw(const struct shell *shell, size_t argc, char 
 {
 	int ptw = 0;
 	if (argc == 4) {
-		ptw = strtol(argv[3], NULL, 10);
+		ptw = tmo_strtol(argv[3]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[3],
+				    errno, strerror(errno));
+			return -errno;
+		}
 		if (ptw >= 0 && ptw <= 15) {
 			shell_print(shell, "Set eDRX PTW: %d", ptw);
 			fcntl_ptr(sd, AT_MODEM_EDRX_PTW_SET, (const void *)&ptw);
@@ -1852,7 +1985,12 @@ int cmd_dfu_set_iface(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
-	int idx = strtol(argv[1], NULL, 10);
+	int idx = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	return set_dfu_iface_type(idx);
 }
 
@@ -1884,7 +2022,12 @@ int cmd_dfu_download(const struct shell *shell, size_t argc, char **argv)
 			    "       filename(optional): base filename e.g tmo_shell.tmo_dev_edge");
 		return -EINVAL;
 	}
-	int target = (int)strtol(argv[1], NULL, 10);
+	int target = (int)tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	if (target > 2) {
 		shell_error(shell, "Only 3 targets supported (0-2)");
 		return -EINVAL;
@@ -1945,9 +2088,19 @@ static int cmd_erase_slot(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	int slot = strtol(argv[1], NULL, 10);
+	int slot = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	if (argc == 3) {
-		force = strtol(argv[2], NULL, 10);
+		force = tmo_strtol(argv[2]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2],
+				    errno, strerror(errno));
+			return -errno;
+		}
 	}
 
 	if (force || slot_is_safe_to_erase(slot)) {
@@ -1991,7 +2144,12 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	int version_target = (int)strtol(argv[1], NULL, 10);
+	int version_target = (int)tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	switch (version_target) {
 	case DFU_GECKO: {
 #ifndef BOOT_SLOT
@@ -2035,13 +2193,23 @@ int cmd_dfu_get_version(const struct shell *shell, size_t argc, char **argv)
 
 int cmd_dfu_update(const struct shell *shell, size_t argc, char **argv)
 {
-	int firmware_target = (int)strtol(argv[1], NULL, 10);
+	int firmware_target = (int)tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	int delta_firmware_target;
 	char *dfu_modem_filename;
 	struct dfu_file_t dfu_modem_file;
 
 	if (firmware_target == DFU_GECKO) {
-		delta_firmware_target = (int)strtol(argv[2], NULL, 10);
+		delta_firmware_target = (int)tmo_strtol(argv[2]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2],
+				    errno, strerror(errno));
+			return -errno;
+		}
 	} else if (firmware_target == DFU_MODEM) {
 		dfu_modem_filename = argv[2];
 	}
@@ -2212,7 +2380,12 @@ int cmd_battery_discharge(const struct shell *shell, size_t argc, char **argv)
 		return -1;
 	}
 	if (argc == 2) {
-		int val = strtol(argv[1], NULL, 10);
+		int val = tmo_strtol(argv[1]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1],
+				    errno, strerror(errno));
+			return -errno;
+		}
 		if (val > 100) {
 			set_point = 100;
 		} else if (val < 0) {
@@ -2321,7 +2494,13 @@ int udp_cred_dtls(const struct shell *shell, size_t argc, char **argv)
 			argv[0]);
 		return -EINVAL;
 	}
-	return tmo_dtls_cred(shell, argv[0], argv[1], (int)strtol(argv[2], NULL, 10));
+	int sd = (int)tmo_strtol(argv[2]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2], errno,
+			    strerror(errno));
+		return -errno;
+	}
+	return tmo_dtls_cred(shell, argv[0], argv[1], sd);
 }
 
 int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv)
@@ -2335,7 +2514,13 @@ int udp_profile_dtls(const struct shell *shell, size_t argc, char **argv)
 			"       socket: socket descriptor from - tmo udp secure_create 1 ");
 		return -EINVAL;
 	}
-	return tmo_profile_dtls(shell, argv[1], (int)strtol(argv[2], NULL, 10));
+	int sd = (int)tmo_strtol(argv[2]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2], errno,
+			    strerror(errno));
+		return -errno;
+	}
+	return tmo_profile_dtls(shell, argv[1], sd);
 }
 
 int golden_check()
@@ -2450,7 +2635,12 @@ int cmd_json_set_iface(const struct shell *shell, size_t argc, char **argv)
 		shell_help(shell);
 		return -EINVAL;
 	}
-	int idx = strtol(argv[1], NULL, 10);
+	int idx = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	return set_json_iface_type(idx);
 }
 
@@ -2467,7 +2657,12 @@ int cmd_json_transmit_interval(const struct shell *shell, size_t argc, char **ar
 		shell_help(shell);
 		return -EINVAL;
 	}
-	int secs = strtol(argv[1], NULL, 10);
+	int secs = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	if (secs >= 1) {
 		set_transmit_interval(secs);
 		return 0;
@@ -2571,8 +2766,18 @@ int cmd_play_tone(const struct shell *shell, size_t argc, char **argv)
 		return -1;
 	}
 
-	int frequency = strtol(argv[1], NULL, 10);
-	int duration = strtol(argv[2], NULL, 10);
+	int frequency = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
+	int duration = tmo_strtol(argv[2]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[2], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	tmo_play_tone(frequency, duration);
 	return 0;
 }
@@ -2632,7 +2837,12 @@ int cmd_tmo_buzzer_vol(const struct shell *shell, int argc, char **argv)
 		shell_print(shell, "  tmo buzzer vol <volume_percent>");
 		return 1;
 	}
-	int vol = strtol(argv[1], NULL, 10);
+	int vol = tmo_strtol(argv[1]);
+	if (errno != 0) {
+		shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1], errno,
+			    strerror(errno));
+		return -errno;
+	}
 	tmo_buzzer_set_volume(vol);
 	shell_print(shell, "Volume set to %d%%", vol);
 	return 0;
@@ -2655,7 +2865,12 @@ int cmd_tmo_cert_modem_load(const struct shell *shell, int argc, char **argv)
 		shell_print(shell, "  usage: tmo certs modem_load [force]");
 	}
 	if (argc == 2) {
-		force = strtol(argv[1], NULL, 10);
+		force = tmo_strtol(argv[1]);
+		if (errno != 0) {
+			shell_error(shell, "Input argument %s is invalid, errno = %d; %s", argv[1],
+				    errno, strerror(errno));
+			return -errno;
+		}
 	}
 	struct murata_cert_params cparams;
 	struct tls_credential cert;
