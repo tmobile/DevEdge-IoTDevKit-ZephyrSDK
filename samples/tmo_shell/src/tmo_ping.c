@@ -86,6 +86,7 @@ int cmd_ping(const struct shell *shell, size_t argc, char **argv)
     if (ping_cnt <= 0) {
         shell_error(shell, "Invalid ping count %d", ping_cnt);
         print_usage(shell);
+        return EINVAL;
     }
     if (!net_ipaddr_parse(host, strlen(host), &dst)) 
     {
