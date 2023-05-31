@@ -25,7 +25,6 @@ K_SEM_DEFINE(adc_sem, 0, 1);
 static ADC_InitSingle_TypeDef initSingle_bv = ADC_INITSINGLE_DEFAULT;
 static ADC_InitSingle_TypeDef initSingle_hwid = ADC_INITSINGLE_DEFAULT;
 
-#ifdef HWID_APORT
 /**
  * @brief Set the VBAT_SNS_EN Pin High to enable ADC readings
  * 
@@ -40,14 +39,19 @@ static void set_vbat_sens_en(bool enable)
 	GPIO_PinModeSet(VBAT_EN_PORT, VBAT_EN_PIN, gpioModePushPull, enable);
 #endif /* VBAT_EN_PORT */
 }
-#endif /* HWID_APORT */
 
 /**
  * @brief Initialize the Gecko ADC
  * 
  */
-void initADC(void)
+static void initADC(void)
 {
+	static bool lazy_init = false;	/* perform the init only once */
+	/* use lazy init, to remove the call from tmo_shell.c */
+	if (lazy_init) {
+		return;
+	}
+	lazy_init = true;
 
 	// Enable ADC0 clock
 	CMU_ClockEnable(cmuClock_ADC0, true);
@@ -77,10 +81,6 @@ void initADC(void)
 	init.timebase = ADC_TimebaseCalc(0);
 
 	ADC_Init(ADC0, &init);
-
-	int hwid = read_hwid();
-
-	LOG_INF("HWID = %d\n", hwid);
 }
 
 /*
@@ -88,7 +88,7 @@ void initADC(void)
  *         (to the nearest 1%) in bv.
  *         It returns true if successful, or false if there is an issue
  */
-bool millivolts_to_percent(uint32_t millivolts, uint8_t *percent) {
+__weak bool millivolts_to_percent(uint32_t millivolts, uint8_t *percent) {
 	float curBv = get_remaining_capacity((float) millivolts / 1000);
 	*percent = (uint8_t) (curBv + 0.5);
 	return true;
@@ -97,9 +97,11 @@ bool millivolts_to_percent(uint32_t millivolts, uint8_t *percent) {
 /**
  * @brief  Main function
  */
-int read_battery_voltage(void)
+__weak int read_battery_voltage(void)
 {
 #ifdef VBAT_APORT
+	initADC();
+
 	uint32_t sample;
 	uint32_t millivolts;
 	float millivolts_f;
@@ -140,9 +142,11 @@ int read_battery_voltage(void)
  * 
  * @return int Millivolts
  */
-int read_hwid(void)
+__weak int read_hwid(void)
 {
 #ifdef HWID_APORT
+	initADC();
+
 	uint32_t sample;
 	uint32_t millivolts;
 	float millivolts_f;
