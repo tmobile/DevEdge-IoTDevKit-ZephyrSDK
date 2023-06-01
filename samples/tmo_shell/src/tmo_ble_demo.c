@@ -752,6 +752,7 @@ static struct bt_data ibeacon_custom[2] = {
 
 #if CONFIG_WIFI
 
+/* DaR TODO Removed What now?
 static struct net_mgmt_event_callback ble_demo_mgmt_cb;
 
 static void ble_sample_wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb,
@@ -765,7 +766,7 @@ static void ble_sample_wifi_mgmt_event_handler(struct net_mgmt_event_callback *c
 		ssid_len = res->ssid_length;
 		rssi = res->rssi;
 	}
-}
+} */
 
 void ble_wifi_status_retrieve(void *a, void *b, void *c)
 {
@@ -774,9 +775,9 @@ void ble_wifi_status_retrieve(void *a, void *b, void *c)
 	ARG_UNUSED(c);
 	while (1) {
 		k_sem_take(&wifi_status_refresh_sem, K_FOREVER);
-		struct net_if *iface = net_if_get_by_index(2); //Hardcoded for now
+		/* struct net_if *iface = net_if_get_by_index(2); Hardcoded for now */
 
-		net_mgmt(NET_REQUEST_WIFI_STATUS, iface, NULL, 0);
+		/* net_mgmt(NET_REQUEST_WIFI_STATUS, iface, NULL, 0); DaR TODO ? */
 	}
 }
 
@@ -933,12 +934,12 @@ static int tmo_ble_demo_init()
 		}
 	}
 
-#ifdef CONFIG_WIFI
+#if 0 /* DaR TODO def CONFIG_WIFI */
 	net_mgmt_init_event_callback(&ble_demo_mgmt_cb,
 			ble_sample_wifi_mgmt_event_handler,
 			NET_EVENT_WIFI_STATUS_RESULT);
 
-	net_mgmt_add_event_callback(&ble_demo_mgmt_cb);
+			net_mgmt_add_event_callback(&ble_demo_mgmt_cb);
 #endif
 	setup_buttons();
 

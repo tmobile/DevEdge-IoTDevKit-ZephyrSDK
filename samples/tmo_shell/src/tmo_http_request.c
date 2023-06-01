@@ -385,7 +385,7 @@ int tmo_http_download(int devid, char url[], char filename[], char *auth_key)
 	req.response = response_cb_download;
 	req.recv_buf = mxfer_buf;
 	req.recv_buf_len = 4096;
-	req.packet_timeout = 10000;
+	/* req.packet_timeout = 10000; DaR TODO Where is this */
 
 	ret = tmo_offload_init(devid);
 	if (ret != 0) {
