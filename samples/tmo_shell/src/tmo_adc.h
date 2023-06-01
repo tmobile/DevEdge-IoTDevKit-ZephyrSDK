@@ -10,6 +10,5 @@
 int read_battery_voltage(void);
 int read_hwid(void);
 bool millivolts_to_percent(uint32_t millivolts, uint8_t *bv);
-void initADC();
 
 #endif

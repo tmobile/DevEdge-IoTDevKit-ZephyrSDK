@@ -3049,7 +3049,6 @@ void tmo_shell_main(void)
 	mountfs();
 
 	cxd5605_init();
-	initADC();
 #ifdef CONFIG_WIFI
 	tmo_wifi_connect();
 #endif
