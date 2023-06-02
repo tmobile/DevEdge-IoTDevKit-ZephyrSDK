@@ -1,0 +1,13 @@
+# Copyright (c) 2023 T-Mobile USA, Inc.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+mainmenu "LIS2DW12 sample application"
+
+config LIS2DW12_SAMPLE_DRDY
+    bool "Enable the data read trigger"
+    depends on LIS2DW12_TRIGGER
+    default n
+
+source "Kconfig.zephyr"

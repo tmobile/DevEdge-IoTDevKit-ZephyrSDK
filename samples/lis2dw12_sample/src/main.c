@@ -8,12 +8,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
-#include <zephyr/drivers/sensor/lis2dw12.h>
-
-#define DOUBLE_TAP_EVENT 0x10U
-#define SINGLE_TAP_EVENT 0x08U
-#define FREEFALL_EVENT	 0x02U
-#define DATAREADY_EVENT	 0x01U
 
 bool sample_init_complete = false;
 
@@ -21,9 +15,8 @@ bool sample_init_complete = false;
 uint8_t reg_value;
 struct sensor_value temperature;
 struct sensor_value sensor_attr_val;
-struct sensor_trigger trig;
 
-static void trigger_and_display(const struct device *sensor)
+static void trigger_and_display(const struct device *sensor, const struct sensor_trigger *trig)
 {
 	static unsigned int count;
 	struct sensor_value accel[3];
@@ -56,66 +49,43 @@ static void trigger_and_display(const struct device *sensor)
 		       sensor_value_to_double(&accel[2]));
 	}
 #endif
-	rc = sensor_attr_get(sensor, trig.chan, SENSOR_ATTR_STATUS,
-			     (struct sensor_value *)&sensor_attr_val);
-	if (rc < 0) {
-		printf("\n\tERROR: Unable to read register 0X27 :%d\n", rc);
-	} else {
-		reg_value = (uint8_t)sensor_attr_val.val1;
-		if ((reg_value & SINGLE_TAP_EVENT) == SINGLE_TAP_EVENT) {
-			printf("\n\tSINGLE TAP was detected (%xh)\n", (reg_value));
-		} else if ((reg_value & DOUBLE_TAP_EVENT) == DOUBLE_TAP_EVENT) {
-			printf("\n\tDOUBLE TAP was detected (%xh)\n", (reg_value));
-		} else if ((reg_value & FREEFALL_EVENT) == FREEFALL_EVENT) {
-			printf("\n\tFREE FALL was detected (%xh)\n", (reg_value));
-		} else if ((reg_value & DATAREADY_EVENT) == DATAREADY_EVENT) {
-			printf("\n\tDATAREADY was detected (%xh)\n", (reg_value));
+	if (trig) {
+		if (trig->type == SENSOR_TRIG_TAP) {
+			printf("\nSINGLE TAP was detected\n");
+		} else if (trig->type == SENSOR_TRIG_DOUBLE_TAP) {
+			printf("\nDOUBLE TAP was detected\n");
+		} else if (trig->type == SENSOR_TRIG_FREEFALL) {
+			printf("\nFREE FALL was detected\n");
+		} else if (trig->type == SENSOR_TRIG_DATA_READY) {
+			printf("\nDATAREADY was detected\n");
+		} else if (trig->type == SENSOR_TRIG_THRESHOLD) {
+			printf("\nTHRESHOLD event was detected\n");
 		} else {
-			printf("\n\tUNKNOWN event was detected (%xh)\n", (reg_value));
+			printf("\nUNKNOWN event was detected (%d)\n", (trig->type));
 		}
 	}
 
-	uint8_t reg_array[5] = {0};
-	rc = sensor_attr_get(sensor, trig.chan, SENSOR_ATTR_ALL_WAKE_UP_SRC,
-			     (struct sensor_value *)&reg_array[0]);
-	if (rc < 0) {
-		printf("\n\tERROR: Unable to read register 0x38 :%d\n", rc);
-	} else {
-		if (reg_array[1]) {
-			if ((reg_array[1] & 0x20) == 0x20) {
-				printf("\tReg 38h - FREE FALL detected (%xh)\n", (reg_array[1]));
-			}
-		} else {
-			printf("\tReg 38h - No WAKE SRC detected (%xh)\n", (reg_array[1]));
+	if (trig->type == SENSOR_TRIG_THRESHOLD) {
+		if (trig->chan == SENSOR_CHAN_ACCEL_X) {
+			printf("\tTHRESHOLD X-Axis detected\n");
+		}
+		if (trig->chan == SENSOR_CHAN_ACCEL_Y) {
+			printf("\tTHRESHOLD Y-Axis detected\n");
+		}
+		if (trig->chan == SENSOR_CHAN_ACCEL_Z) {
+			printf("\tTHRESHOLD Z-Axis detected\n");
 		}
 	}
 
-	reg_value = 0;
-	rc = sensor_attr_get(sensor, trig.chan, SENSOR_ATTR_TAP_SRC,
-			     (struct sensor_value *)&reg_value);
-	if (rc < 0) {
-		printf("\n\tERROR: Unable to read register 0x39 :%d\n", rc);
-	} else {
-
-		if (reg_value) {
-			if ((reg_value & 0x01) == 0x01) {
-				printf("\tReg 39h - TAP_EVENT  Negative Accel detected (%xh)\n",
-				       (reg_value));
-			} else {
-				printf("\tReg 39h - TAP_EVENT Positive Accel detected (%xh)\n",
-				       (reg_value));
-			}
-			if ((reg_value & 0x04) == 0x04) {
-				printf("\tReg 39h - TAP_EVENT X-Axis detected\n");
-			}
-			if ((reg_value & 0x02) == 0x02) {
-				printf("\tReg 39h - TAP_EVENT Y-Axis detected\n");
-			}
-			if ((reg_value & 0x01) == 0x01) {
-				printf("\tReg 39h - TAP_EVENT Z-Axis detected\n");
-			}
-		} else {
-			printf("\tReg 39h - No TAP_EVENT detected (%xh)\n", (reg_value));
+	if (trig->type == SENSOR_TRIG_TAP || trig->type == SENSOR_TRIG_DOUBLE_TAP) {
+		if (trig->chan == SENSOR_CHAN_ACCEL_X) {
+			printf("\tTAP_EVENT X-Axis detected\n");
+		}
+		if (trig->chan == SENSOR_CHAN_ACCEL_Y) {
+			printf("\tTAP_EVENT Y-Axis detected\n");
+		}
+		if (trig->chan == SENSOR_CHAN_ACCEL_Z) {
+			printf("\tTAP_EVENT Z-Axis detected\n");
 		}
 	}
 
@@ -131,7 +101,7 @@ static void trigger_and_display(const struct device *sensor)
 #ifdef CONFIG_LIS2DW12_TRIGGER
 static void trigger_handler(const struct device *dev, const struct sensor_trigger *trig)
 {
-	trigger_and_display(dev);
+	trigger_and_display(dev, trig);
 }
 #endif
 
@@ -166,71 +136,157 @@ void main(void)
 #if CONFIG_LIS2DW12_TRIGGER
 	int rc;
 
-	trig.type = SENSOR_TRIG_DATA_READY;
-	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+	static struct sensor_trigger drdy_trig;
+	drdy_trig.type = SENSOR_TRIG_DATA_READY;
+	drdy_trig.chan = SENSOR_CHAN_ACCEL_XYZ;
 
 	struct sensor_value odr = {
-		.val1 = 1,
+		.val1 = 2,
 	};
 
-	rc = sensor_attr_set(sensor, trig.chan, SENSOR_ATTR_SAMPLING_FREQUENCY, &odr);
+	rc = sensor_attr_set(sensor, drdy_trig.chan, SENSOR_ATTR_SAMPLING_FREQUENCY, &odr);
 	if (rc != 0) {
 		printf("\tFailed to set odr: %d\n", rc);
 		return;
 	}
 
-	trig.type = SENSOR_TRIG_DOUBLE_TAP;
-	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+#if CONFIG_LIS2DW12_SAMPLE_DRDY
+	rc = sensor_trigger_set(sensor, &drdy_trig, trigger_handler);
+#endif
 
-	rc = sensor_trigger_set(sensor, &trig, trigger_handler);
+	static struct sensor_trigger ff_trig;
+	ff_trig.type = SENSOR_TRIG_FREEFALL;
+	ff_trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+
+#if CONFIG_LIS2DW12_TAP
+	rc = sensor_trigger_set(sensor, &ff_trig, trigger_handler);
+
+	static struct sensor_trigger dtap_xyz_trig;
+	dtap_xyz_trig.type = SENSOR_TRIG_DOUBLE_TAP;
+	dtap_xyz_trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+
+	rc = sensor_trigger_set(sensor, &dtap_xyz_trig, trigger_handler);
 	if (rc != 0) {
 		printf("\tFailed to set Double Tap trigger: %d\n", rc);
 		return;
 	}
 
-	trig.type = SENSOR_TRIG_THRESHOLD;
-	trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+	static struct sensor_trigger stap_xyz_trig;
+	stap_xyz_trig.type = SENSOR_TRIG_TAP;
+	stap_xyz_trig.chan = SENSOR_CHAN_ACCEL_XYZ;
 
-	rc = sensor_trigger_set(sensor, &trig, trigger_handler);
+	rc = sensor_trigger_set(sensor, &stap_xyz_trig, trigger_handler);
+	if (rc != 0) {
+		printf("\tFailed to set Single Tap trigger: %d\n", rc);
+		return;
+	}
+
+#if CONFIG_LIS2DW12_TAP_3D
+	static struct sensor_trigger dtap_x_trig;
+	dtap_x_trig.type = SENSOR_TRIG_DOUBLE_TAP;
+	dtap_x_trig.chan = SENSOR_CHAN_ACCEL_X;
+
+	rc = sensor_trigger_set(sensor, &dtap_x_trig, trigger_handler);
+	if (rc != 0) {
+		printf("\tFailed to set Double Tap X trigger: %d\n", rc);
+		return;
+	}
+
+	
+	static struct sensor_trigger dtap_y_trig;
+	dtap_y_trig.type = SENSOR_TRIG_DOUBLE_TAP;
+	dtap_y_trig.chan = SENSOR_CHAN_ACCEL_Y;
+
+	rc = sensor_trigger_set(sensor, &dtap_y_trig, trigger_handler);
+	if (rc != 0) {
+		printf("\tFailed to set Double Tap Y trigger: %d\n", rc);
+		return;
+	}
+
+	static struct sensor_trigger dtap_z_trig;
+	dtap_z_trig.type = SENSOR_TRIG_DOUBLE_TAP;
+	dtap_z_trig.chan = SENSOR_CHAN_ACCEL_Z;
+
+	rc = sensor_trigger_set(sensor, &dtap_z_trig, trigger_handler);
+	if (rc != 0) {
+		printf("\tFailed to set Double Tap Z trigger: %d\n", rc);
+		return;
+	}
+
+	static struct sensor_trigger stap_x_trig;
+	stap_x_trig.type = SENSOR_TRIG_TAP;
+	stap_x_trig.chan = SENSOR_CHAN_ACCEL_X;
+
+	rc = sensor_trigger_set(sensor, &stap_x_trig, trigger_handler);
+	if (rc != 0) {
+		printf("\tFailed to set Single Tap X trigger: %d\n", rc);
+		return;
+	}
+
+	static struct sensor_trigger stap_y_trig;
+	stap_y_trig.type = SENSOR_TRIG_TAP;
+	stap_y_trig.chan = SENSOR_CHAN_ACCEL_Y;
+
+	rc = sensor_trigger_set(sensor, &stap_y_trig, trigger_handler);
+	if (rc != 0) {
+		printf("\tFailed to set Single Tap Y trigger: %d\n", rc);
+		return;
+	}
+
+	static struct sensor_trigger stap_z_trig;
+	stap_z_trig.type = SENSOR_TRIG_TAP;
+	stap_z_trig.chan = SENSOR_CHAN_ACCEL_Z;
+
+	rc = sensor_trigger_set(sensor, &stap_z_trig, trigger_handler);
+	if (rc != 0) {
+		printf("\tFailed to set Single Tap Z trigger: %d\n", rc);
+		return;
+	}
+#endif /* CONFIG_LIS2DW12_TAP_3D */
+#endif /* CONFIG_LIS2DW12_TAP */
+#if CONFIG_LIS2DW12_THRESHOLD
+	static struct sensor_trigger thresh_xyz_trig;
+	thresh_xyz_trig.type = SENSOR_TRIG_THRESHOLD;
+	thresh_xyz_trig.chan = SENSOR_CHAN_ACCEL_XYZ;
+
+	rc = sensor_trigger_set(sensor, &thresh_xyz_trig, trigger_handler);
 	if (rc != 0) {
 		printf("\tFailed to set Threshold trigger: %d\n", rc);
 		return;
 	}
 
-	struct sensor_value ctrl4_reg = {
-		.val1 = 0x58,
-	};
+#if CONFIG_LIS2DW12_THRESHOLD_3D
+	static struct sensor_trigger thresh_x_trig;
+	thresh_x_trig.type = SENSOR_TRIG_THRESHOLD;
+	thresh_x_trig.chan = SENSOR_CHAN_ACCEL_X;
 
-	rc = sensor_attr_set(sensor, trig.chan, SENSOR_ATTR_ENABLE_EVENT_INTERRUPT, &ctrl4_reg);
+	rc = sensor_trigger_set(sensor, &thresh_x_trig, trigger_handler);
 	if (rc != 0) {
-		printf("\tFailed to set odr: %d\n", rc);
+		printf("\tFailed to set Threshold X trigger: %d\n", rc);
 		return;
 	}
 
-	rc = sensor_attr_get(sensor, trig.chan, SENSOR_ATTR_CHIP_ID,
-			     (struct sensor_value *)&sensor_attr_val);
+	static struct sensor_trigger thresh_y_trig;
+	thresh_y_trig.type = SENSOR_TRIG_THRESHOLD;
+	thresh_y_trig.chan = SENSOR_CHAN_ACCEL_Y;
+
+	rc = sensor_trigger_set(sensor, &thresh_y_trig, trigger_handler);
 	if (rc != 0) {
-		printf("\tFailed to get status: %d\n", rc);
+		printf("\tFailed to set Threshold Y trigger: %d\n", rc);
 		return;
 	}
 
-	if (sensor_attr_val.val1 == 0x44) {
-		printf("\tWHOAMI: (%xh)\n", (uint8_t)sensor_attr_val.val1);
-	} else {
-		printf("\tError : WHOAMI (%xh) doesnt match the LIS2DW12 ?\n",
-		       (sensor_attr_val.val1));
-		return;
-	}
+	static struct sensor_trigger thresh_z_trig;
+	thresh_z_trig.type = SENSOR_TRIG_THRESHOLD;
+	thresh_z_trig.chan = SENSOR_CHAN_ACCEL_Z;
 
-	rc = sensor_attr_get(sensor, trig.chan, SENSOR_ATTR_STATUS,
-			     (struct sensor_value *)&sensor_attr_val);
+	rc = sensor_trigger_set(sensor, &thresh_z_trig, trigger_handler);
 	if (rc != 0) {
-		printf("\tFailed to get status: %d\n", rc);
+		printf("\tFailed to set Threshold Z trigger: %d\n", rc);
 		return;
 	}
-
-	printf("\tSENSOR_ATTR_STATUS: (%xh)\n", sensor_attr_val.val1);
-
+#endif /* CONFIG_LIS2DW12_THRESHOLD_3D */
+#endif /* CONFIG_LIS2DW12_THRESHOLD */
 	/* Let the interrupt handler know the sample is ready to run */
 	sample_init_complete = true;
 
@@ -242,7 +298,7 @@ void main(void)
 
 #else  /* CONFIG_LIS2DW12_TRIGGER */
 	while (true) {
-		trigger_and_display(sensor);
+		trigger_and_display(sensor, NULL);
 		k_sleep(K_MSEC(2000));
 	}
 #endif /* CONFIG_LIS2DW12_TRIGGER */

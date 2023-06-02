@@ -1,0 +1,13 @@
+sample:
+  name: LIS2DW12 Accelerometer Sample
+tests:
+  sample.sensor.lis2dw12:
+    harness: console
+    tags: samples sensor
+    depends_on: i2c gpio
+    filter: dt_compat_enabled("st,lis2dw12")
+    harness_config:
+        type: multi_line
+        regex:
+            - "temperature is *.*C"
+
