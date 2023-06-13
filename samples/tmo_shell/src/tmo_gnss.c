@@ -115,6 +115,23 @@ int gnss_version(void)
 	return rc;
 }
 
+int gnss_cold_start(void)
+{
+	return sensor_attr_set(cxd5605,SENSOR_CHAN_ALL,SENSOR_ATTR_CXD5605_COLD_START, NULL);
+}
+
+int gnss_warm_start(void)
+{
+	return sensor_attr_set(cxd5605,SENSOR_CHAN_ALL,SENSOR_ATTR_CXD5605_WARM_START, NULL);
+}
+
+
+int gnss_hot_start(void)
+{
+	return sensor_attr_set(cxd5605,SENSOR_CHAN_ALL,SENSOR_ATTR_CXD5605_HOT_START_TTFF, NULL);
+}
+
+
 static uint8_t current_state = ENABLE_HARDWARE;
 
 void gnss_enable_hardware(void)
@@ -166,7 +183,6 @@ void gnss_thread(void *a, void *b, void *c)
 
 		switch (current_state) {
 		case ENABLE_HARDWARE:
-			rc = sensor_attr_set(cxd5605,SENSOR_CHAN_ALL,SENSOR_ATTR_CXD5605_CALLBACK, &sens_values);
 			sens_values.val1 = 1;
 			sens_values.val2 = (int32_t)callback_1pps;
 			rc = sensor_attr_set(cxd5605,SENSOR_CHAN_ALL,SENSOR_ATTR_CXD5605_PULSE, &sens_values);

@@ -31,6 +31,9 @@ void setup_gnss(void);
 void readGNSSData(void);
 void ln_buf_gen(void);
 int gnss_version(void);
+int gnss_cold_start(void);
+int gnss_warm_start(void);
+int gnss_hot_start(void);
 
 #ifdef TMO_GNSS
 /* variables for tmo_gnss.c */
