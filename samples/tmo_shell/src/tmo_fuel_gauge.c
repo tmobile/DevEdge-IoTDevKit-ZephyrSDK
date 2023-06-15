@@ -26,7 +26,7 @@ int get_pmic_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t
 	props[0].property_type = FUEL_GAUGE_STATUS;
 	props[1].property_type = FUEL_GAUGE_CONNECT_STATE;
 	props[2].property_type = FUEL_GAUGE_PRESENT_STATE;
-	props[3].property_type = FUEL_GAUGE_MODE;
+	props[3].property_type = FUEL_GAUGE_SBS_MODE;
 
 	ret = fuel_gauge_get_prop(alpc, props, ARRAY_SIZE(props));
 
@@ -44,10 +44,10 @@ int get_pmic_status(uint8_t *charging, uint8_t *vbus, uint8_t *attached, uint8_t
 		*attached = props[2].value.flags;
 	}
 	if (fault) {
-		*fault = props[3].value.mode == PMIC_FAULT_MODE_VALUE;
+		*fault = props[3].value.sbs_mode == PMIC_FAULT_MODE_VALUE;
 	}
 	if (charge_status) {
-		*charge_status  = props[3].value.mode;
+		*charge_status  = props[3].value.sbs_mode;
 	}
 
 	return 0;

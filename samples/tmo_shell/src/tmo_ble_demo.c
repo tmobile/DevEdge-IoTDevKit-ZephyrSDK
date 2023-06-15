@@ -1006,8 +1006,9 @@ bool fetch_pressure(struct sensor_value *press)
 	}
 	return false;
 }
+#if 0
 SYS_INIT(tmo_ble_demo_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
-
+#endif
 
 int cmd_ble_adv_conn(const struct shell *shell, size_t argc, char **argv)
 {
