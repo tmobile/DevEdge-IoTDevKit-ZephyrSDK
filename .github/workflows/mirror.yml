@@ -1,0 +1,26 @@
+name: Public Mirror To Private
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: self-hosted-ubuntu-20-04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ssh-key: ${{ secrets.MIRROR_KEY }}
+      - run: |
+          echo "cloning upstream"
+          git clone --mirror https://github.com/tmobile/DevEdge-IoTDevKit-ZephyrSDK.git
+          cd DevEdge-IoTDevKit-ZephyrSDK.git
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+          echo "${{ secrets.MIRROR_KEY }}" > ~/.ssh/id_rsa
+          chmod 0400 ~/.ssh/id_rsa
+          ls -la ~/.ssh
+          eval $(ssh-agent -s)
+          ssh-add ~/.ssh/id_rsa
+          echo "pushing all from upstream to ours"
+          git push -f --all git@github.com:TmoBrandedHw/firmware-zephyrsdk.git
+          git push --tags git@github.com:TmoBrandedHw/firmware-zephyrsdk.git
