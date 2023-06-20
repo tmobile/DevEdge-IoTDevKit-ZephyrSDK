@@ -178,6 +178,7 @@ static void handle_wifi_disconnect_result(struct net_mgmt_event_callback *cb)
 
 bool status_requested = false;
 
+	/* DaR TODO Unused
 static void handle_wifi_status_result(struct net_mgmt_event_callback *cb)
 {
 	if (!status_requested) {
@@ -185,6 +186,7 @@ static void handle_wifi_status_result(struct net_mgmt_event_callback *cb)
 	} else {
 		status_requested = false;
 	}
+
 	const struct wifi_status_result *entry =
 		(const struct wifi_status_result *)cb->info;
 
@@ -195,7 +197,7 @@ static void handle_wifi_status_result(struct net_mgmt_event_callback *cb)
 			"\n%-4s | %-12s | %-32s %-5s | %-4s | %-4s | %-5s    | %-15s | %s\n",
 			"Mode", "State", "SSID", "(len)", "Chan", "RSSI", "Sec", "IPv4", "IPv6");
 	bool has_ip6 = entry->ip6.s6_addr32[0] || entry->ip6.s6_addr32[1] 
-		|| entry->ip6.s6_addr32[2] || entry->ip6.s6_addr32[3];
+	   || entry->ip6.s6_addr32[2] || entry->ip6.s6_addr32[3];
 	print(context.shell, SHELL_NORMAL, "%-4s | %-12s | %-32s %-5u | %-4u | %-4d | %-5s | %-15s | %s\n",
 			(entry->ap_mode ? " AP" : " ST"),
 			(entry->connected ? "Connected" : "Disconnected"),
@@ -207,8 +209,8 @@ static void handle_wifi_status_result(struct net_mgmt_event_callback *cb)
 				 sizeof(ip4_string_buf)) : ""),
 			((has_ip6) ?
 			 net_addr_ntop(AF_INET6, &entry->ip6, ip6_string_buf,
-				 sizeof(ip6_string_buf)) : ""));
-}
+			 sizeof(ip6_string_buf)) : ""));
+} */
 
 static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb,
 		uint32_t mgmt_event, struct net_if *iface)
@@ -226,9 +228,10 @@ static void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb,
 		case NET_EVENT_WIFI_DISCONNECT_RESULT:
 			handle_wifi_disconnect_result(cb);
 			break;
+			/* DaR TODO
 		case NET_EVENT_WIFI_STATUS_RESULT:
 			handle_wifi_status_result(cb);
-			break;
+			break; */
 		default:
 			break;
 	}
@@ -447,12 +450,12 @@ int cmd_wifi_status(const struct shell *shell, size_t argc, char *argv[])
 #endif
 
 	context.shell = shell;
-
+	/* DaR TODO Remove Now what? 
 	if (net_mgmt(NET_REQUEST_WIFI_STATUS, iface, NULL, 0)) {
 		shell_fprintf(shell, SHELL_WARNING, "Status request failed\n");
 
 		return -ENOEXEC;
-	}
+		} */
 	return 0;
 }
 
