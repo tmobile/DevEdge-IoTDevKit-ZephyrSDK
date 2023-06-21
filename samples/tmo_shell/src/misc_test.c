@@ -162,6 +162,7 @@ int misc_test()
 	}
 
 	if (strcmp(CONFIG_BOARD, "tmo_dev_edge") == 0) {
+#if DT_NODE_EXISTS(DT_NODELABEL(lc709204f))
 		/* Check for presence of On Semi LC709204F fuel gauge
 		 * (battery must be present for this to pass)
 		 */
@@ -171,6 +172,7 @@ int misc_test()
 		} else {
 			printf("i2c read " I2C_1 "0xb 0x15 2 - LC709204F fuel gauge - shell command was successful\n");
 		}
+#endif
 
 		/* Scan the secondary I2C bus (I2C_0) */
 		if ((ret = shell_execute_cmd(shell_backend_uart_get_ptr(), "i2c scan " I2C_0)) != 0) {
