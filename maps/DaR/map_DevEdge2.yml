@@ -1,0 +1,10 @@
+- connected: true
+  id: 900032503
+  platform: tmo_dev_edge
+  product: J-Link OB
+  runner: jlink
+  serial: /dev/ttyACM3
+  baud: 9600
+  fixtures:
+    - gpio_loopback
+    - regulator_loopback

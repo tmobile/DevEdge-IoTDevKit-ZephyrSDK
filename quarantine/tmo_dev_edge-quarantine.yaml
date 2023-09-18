@@ -1,0 +1,26 @@
+- scenarios:
+    - benchmark.kernel.scheduler
+    - drivers.counter.basic_api
+    - drivers.flash.common.default
+    - kernel.memory_slabs
+    - kernel.timer.timer
+    - kernel.usage
+    - kernel.workqueue
+    - libraries.cmsis_dsp.filtering.misc
+    - libraries.cmsis_dsp.filtering.misc.fpu
+    - libraries.encoding.jwt
+    - logging.add.async
+    - logging.log_backend_initialization
+    - logging.log_link_order
+    - logging.log_output_custom_timestamp
+    - portability.cmsis_rtos_v2
+    - rtio.api.userspace
+    - rtio.api.userspace.submit_sem
+    - sample.modules.nanopb
+    - sample.nvs.basic
+    - sample.subsys.task_wdt
+    - zdsp.basicmath
+    - zdsp.basicmath.fpu
+  platforms:
+    - tmo_dev_edge
+  comment: "SiLabs Pearl Gecko is broken"

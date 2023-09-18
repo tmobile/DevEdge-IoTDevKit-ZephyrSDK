@@ -1,0 +1,5 @@
+- scenarios:
+    - sample.basic.helloworld
+  platforms:
+    - native_posix
+
